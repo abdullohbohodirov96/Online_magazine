@@ -2,31 +2,28 @@ import { put } from '@vercel/blob';
 import fs from 'fs';
 import path from 'path';
 
-export async function uploadFile(file: File): Promise<string> {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-  const provider = process.env.STORAGE_PROVIDER;
+export async function uploadFile(file: File) {
+  console.log("Blob token exists:", Boolean(process.env.BLOB_READ_WRITE_TOKEN));
+  console.log("Storage provider:", process.env.STORAGE_PROVIDER);
+  console.log("Node env:", process.env.NODE_ENV);
 
-  console.log('UPLOAD DEBUG:', {
-    nodeEnv: process.env.NODE_ENV,
-    provider,
-    hasBlobToken,
-  });
+  const isProduction = process.env.NODE_ENV === "production";
+  const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
   if (isProduction) {
     if (!hasBlobToken) {
-      throw new Error('Storage не настроен. Добавьте BLOB_READ_WRITE_TOKEN в Vercel ENV.');
+      throw new Error("Storage не настроен. Добавьте BLOB_READ_WRITE_TOKEN в Vercel ENV.");
     }
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+
     const blob = await put(`uploads/${Date.now()}-${safeName}`, file, {
-      access: 'public',
+      access: "public",
     });
 
     return blob.url;
   }
 
-  // Local upload only for development
   return uploadLocalFile(file);
 }
 
