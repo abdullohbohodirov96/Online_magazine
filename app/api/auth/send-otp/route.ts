@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { sendSms } from '@/lib/sms';
 
 export async function POST(request: Request) {
   try {
@@ -22,10 +23,20 @@ export async function POST(request: Request) {
       },
     });
 
-    // Mock SMS provider - log code to console
-    console.log('\n======================================');
-    console.log(`[SMS MOCK] Код для ${phone}: ${code}`);
-    console.log('======================================\n');
+    // Send SMS via service abstraction (handles mock vs eskiz)
+    const smsResult = await sendSms(phone, `BozorMarket: Ваш код подтверждения: ${code}`);
+
+    if (!smsResult.success) {
+      // Return clear error message to user if sending fails
+      return NextResponse.json({ error: smsResult.error || 'Не удалось отправить SMS-код' }, { status: 500 });
+    }
+
+    // Mock mode also logs specifically
+    if (process.env.SMS_PROVIDER !== 'eskiz') {
+      console.log('\n======================================');
+      console.log(`[SMS MOCK] Код для ${phone}: ${code}`);
+      console.log('======================================\n');
+    }
 
     return NextResponse.json({ success: true, message: 'Код отправлен' });
   } catch (error: any) {
