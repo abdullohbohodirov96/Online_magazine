@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { uploadImage } from '@/lib/storage/storage-service';
+import { uploadFile } from '@/lib/storage/storage-service';
 
 export async function POST(request: Request) {
   try {
@@ -8,6 +8,9 @@ export async function POST(request: Request) {
     if (!user || user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
+
+    console.log("UPLOAD ROUTE STORAGE_PROVIDER:", process.env.STORAGE_PROVIDER);
+    console.log("UPLOAD ROUTE BLOB TOKEN EXISTS:", Boolean(process.env.BLOB_READ_WRITE_TOKEN));
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Неподдерживаемый формат файла. Разрешены только JPG, PNG, WEBP' }, { status: 400 });
     }
 
-    const url = await uploadImage(file);
+    const url = await uploadFile(file);
     return NextResponse.json({ success: true, url });
   } catch (error: any) {
     console.error('Error in upload route:', error);
