@@ -73,6 +73,12 @@ model Product {
   updatedAt        DateTime    @updatedAt
   cartItems        CartItem[]
   orderItems       OrderItem[]
+  
+  // New fields for integration
+  externalProductId String?
+  source            String     @default("manual") // manual, integration
+  syncPrice         Boolean    @default(true)
+  syncStock         Boolean    @default(true)
 }
 
 model CartItem {
@@ -123,4 +129,33 @@ model IntegrationLog {
   status    String
   message   String
   createdAt DateTime @default(now())
+}
+
+model IntegrationSettings {
+  id                  String    @id @default(cuid())
+  integrationEnabled  Boolean   @default(false)
+  integrationMode     String    @default("disabled") // disabled, csv_import, external_api
+  integrationApiUrl   String?
+  integrationApiKey   String?
+  autoUpdatePrices    Boolean   @default(true)
+  autoUpdateStock     Boolean   @default(true)
+  syncIntervalMinutes Int       @default(5)
+  lastSyncAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model ExternalProduct {
+  id               String   @id @default(cuid())
+  barcode          String?  @unique
+  nomenclatureCode String?  @unique
+  name             String
+  price            Float
+  stock            Float
+  unit             String
+  categoryName     String?
+  rawData          Json?
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

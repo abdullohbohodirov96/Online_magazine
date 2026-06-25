@@ -74,7 +74,7 @@ async function main() {
       description: 'Свежие хрустящие огурцы, идеально подходят для салатов.',
       price: 9000,
       oldPrice: null,
-      stock: 8, // мало осталось
+      stock: 8,
       unit: 'кг',
       categoryId: catVeg.id,
       image: 'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=500&auto=format&fit=crop',
@@ -126,7 +126,7 @@ async function main() {
       description: 'Хрустящий французский багет, выпекаемый каждое утро.',
       price: 5000,
       oldPrice: null,
-      stock: 0, // нет в наличии
+      stock: 0,
       unit: 'шт',
       categoryId: catBakery.id,
       image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop',
@@ -149,6 +149,68 @@ async function main() {
   }
 
   console.log('Products seeded.');
+
+  // 4. Seed Integration Settings
+  const settingsCount = await prisma.integrationSettings.count();
+  if (settingsCount === 0) {
+    await prisma.integrationSettings.create({
+      data: {
+        integrationEnabled: false,
+        integrationMode: 'disabled',
+        autoUpdatePrices: true,
+        autoUpdateStock: true,
+        syncIntervalMinutes: 5,
+      },
+    });
+    console.log('Default Integration Settings seeded.');
+  }
+
+  // 5. Seed ExternalProducts
+  const externalProductsData = [
+    {
+      barcode: '5449000000996',
+      nomenclatureCode: 'COLA15',
+      name: 'Coca-Cola 1.5L',
+      price: 14000,
+      stock: 25,
+      unit: 'шт',
+      categoryName: 'Напитки',
+    },
+    {
+      barcode: '4780012345678',
+      nomenclatureCode: 'MILK1',
+      name: 'Молоко 1L',
+      price: 11000,
+      stock: 40,
+      unit: 'шт',
+      categoryName: 'Молочные продукты',
+    },
+    {
+      barcode: '4780098765432',
+      nomenclatureCode: 'BREAD01',
+      name: 'Хлеб',
+      price: 4000,
+      stock: 60,
+      unit: 'шт',
+      categoryName: 'Хлеб',
+    },
+  ];
+
+  for (const ext of externalProductsData) {
+    await prisma.externalProduct.upsert({
+      where: { barcode: ext.barcode },
+      update: {
+        price: ext.price,
+        stock: ext.stock,
+        name: ext.name,
+        categoryName: ext.categoryName,
+        nomenclatureCode: ext.nomenclatureCode,
+      },
+      create: ext,
+    });
+  }
+
+  console.log('External Products seeded.');
 }
 
 main()

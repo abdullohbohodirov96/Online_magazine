@@ -37,7 +37,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, barcode, nomenclatureCode, description, price, oldPrice, stock, unit, image, categoryId, isActive } = await request.json();
+    const { 
+      name, barcode, nomenclatureCode, description, price, oldPrice, stock, unit, image, categoryId, isActive,
+      externalProductId, source, syncPrice, syncStock
+    } = await request.json();
 
     if (!name || price === undefined || stock === undefined || !unit) {
       return NextResponse.json({ error: 'Заполните обязательные поля: название, цена, остаток, единица измерения' }, { status: 400 });
@@ -62,6 +65,10 @@ export async function POST(request: Request) {
         image: image || null,
         categoryId: categoryId || null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
+        externalProductId: externalProductId || null,
+        source: source || 'manual',
+        syncPrice: syncPrice !== undefined ? Boolean(syncPrice) : true,
+        syncStock: syncStock !== undefined ? Boolean(syncStock) : true,
       },
     });
 
@@ -81,7 +88,10 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { id, name, barcode, nomenclatureCode, description, price, oldPrice, stock, unit, image, categoryId, isActive } = await request.json();
+    const { 
+      id, name, barcode, nomenclatureCode, description, price, oldPrice, stock, unit, image, categoryId, isActive,
+      externalProductId, source, syncPrice, syncStock
+    } = await request.json();
 
     if (!id || !name || price === undefined || stock === undefined || !unit) {
       return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });
@@ -101,6 +111,10 @@ export async function PUT(request: Request) {
         image: image || null,
         categoryId: categoryId || null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
+        externalProductId: externalProductId || null,
+        source: source || 'manual',
+        syncPrice: syncPrice !== undefined ? Boolean(syncPrice) : true,
+        syncStock: syncStock !== undefined ? Boolean(syncStock) : true,
       },
     });
 
