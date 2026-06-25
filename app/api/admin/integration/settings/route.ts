@@ -41,32 +41,36 @@ export async function PUT(request: Request) {
     const data = await request.json();
     let settings = await prisma.integrationSettings.findFirst();
 
+    const payload = {
+      integrationEnabled: data.integrationEnabled ?? false,
+      integrationMode: data.integrationMode ?? 'disabled',
+      integrationApiUrl: data.integrationApiUrl || null,
+      integrationApiKey: data.integrationApiKey || null,
+      autoUpdatePrices: data.autoUpdatePrices ?? true,
+      autoUpdateStock: data.autoUpdateStock ?? true,
+      syncIntervalMinutes: Number(data.syncIntervalMinutes ?? 5),
+      providerName: data.providerName || null,
+      providerType: data.providerType || 'manual_json',
+      authType: data.authType || 'none',
+      requestMethod: data.requestMethod || 'GET',
+      productsEndpoint: data.productsEndpoint || null,
+      ordersEndpoint: data.ordersEndpoint || null,
+      priceFieldMapping: data.priceFieldMapping || null,
+      stockFieldMapping: data.stockFieldMapping || null,
+      fieldMapping: data.fieldMapping || null,
+      isConnected: data.isConnected ?? false,
+      syncStatus: data.syncStatus || null,
+      syncErrorMessage: data.syncErrorMessage || null,
+    };
+
     if (!settings) {
       settings = await prisma.integrationSettings.create({
-        data: {
-          integrationEnabled: data.integrationEnabled ?? false,
-          integrationMode: data.integrationMode ?? 'disabled',
-          integrationApiUrl: data.integrationApiUrl || null,
-          integrationApiKey: data.integrationApiKey || null,
-          autoUpdatePrices: data.autoUpdatePrices ?? true,
-          autoUpdateStock: data.autoUpdateStock ?? true,
-          syncIntervalMinutes: Number(data.syncIntervalMinutes ?? 5),
-          lastSyncAt: data.lastSyncAt ? new Date(data.lastSyncAt) : null,
-        },
+        data: payload,
       });
     } else {
       settings = await prisma.integrationSettings.update({
         where: { id: settings.id },
-        data: {
-          integrationEnabled: data.integrationEnabled ?? false,
-          integrationMode: data.integrationMode ?? 'disabled',
-          integrationApiUrl: data.integrationApiUrl || null,
-          integrationApiKey: data.integrationApiKey || null,
-          autoUpdatePrices: data.autoUpdatePrices ?? true,
-          autoUpdateStock: data.autoUpdateStock ?? true,
-          syncIntervalMinutes: Number(data.syncIntervalMinutes ?? 5),
-          lastSyncAt: data.lastSyncAt ? new Date(data.lastSyncAt) : null,
-        },
+        data: payload,
       });
     }
 

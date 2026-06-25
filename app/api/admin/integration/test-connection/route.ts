@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { testConnection } from '@/lib/integrations/integration-service';
 
 async function checkAdmin() {
   const user = await getCurrentUser();
@@ -16,50 +17,48 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { url, apiKey } = await request.json();
+    const data = await request.json();
+    const { url, apiKey, authType, requestMethod } = data;
 
     if (!url) {
       return NextResponse.json({ error: 'URL обязателен для проверки' }, { status: 400 });
     }
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const testSettings: any = {
+      integrationApiUrl: url,
+      integrationApiKey: apiKey || null,
+      authType: authType || 'none',
+      requestMethod: requestMethod || 'GET',
+    };
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey || '',
-          'Authorization': `Bearer ${apiKey || ''}`,
-        },
-        signal: controller.signal,
-      });
+    const result = await testConnection(testSettings);
 
-      clearTimeout(timeoutId);
-
-      await prisma.integrationLog.create({
+    // Save connection status to DB
+    const settings = await prisma.integrationSettings.findFirst();
+    if (settings) {
+      await prisma.integrationSettings.update({
+        where: { id: settings.id },
         data: {
-          type: 'TEST_CONNECTION',
-          status: 'SUCCESS',
-          message: `Проверка соединения с ${url} прошла успешно. Код ответа: ${response.status}`,
+          isConnected: result.success,
+          lastConnectionCheckAt: new Date(),
         },
       });
-
-      return NextResponse.json({ success: true, message: `Соединение установлено. Статус: ${response.status} ${response.statusText}` });
-    } catch (e: any) {
-      await prisma.integrationLog.create({
-        data: {
-          type: 'TEST_CONNECTION',
-          status: 'ERROR',
-          message: `Ошибка проверки соединения с ${url}: ${e.message || e}`,
-        },
-      });
-
-      return NextResponse.json({ 
-        error: `Не удалось установить соединение: ${e.message || 'Таймаут или ошибка сети'}` 
-      }, { status: 500 });
     }
-  } catch (error) {
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
+
+    await prisma.integrationLog.create({
+      data: {
+        type: 'TEST_CONNECTION',
+        status: result.success ? 'SUCCESS' : 'ERROR',
+        message: `Проверка соединения с ${url}: ${result.message}`,
+      },
+    });
+
+    if (result.success) {
+      return NextResponse.json({ success: true, message: result.message });
+    } else {
+      return NextResponse.json({ error: result.message }, { status: 500 });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Ошибка сервера: ' + (error.message || error) }, { status: 500 });
   }
 }

@@ -6,10 +6,12 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useApp } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
+import { useTelegramWebApp } from '@/lib/telegram/useTelegramWebApp';
 
 export default function CheckoutPage() {
   const { user, cart, totalAmount, fetchCart, setShowLoginModal } = useApp();
   const router = useRouter();
+  const { isTelegram, tgUser } = useTelegramWebApp();
   
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -51,6 +53,9 @@ export default function CheckoutPage() {
           phone,
           address,
           comment,
+          telegramUserId: tgUser ? String(tgUser.id) : null,
+          telegramChatId: tgUser ? String(tgUser.id) : null,
+          source: isTelegram ? 'telegram' : 'web',
         }),
       });
       

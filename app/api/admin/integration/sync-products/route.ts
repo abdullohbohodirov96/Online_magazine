@@ -11,28 +11,26 @@ async function checkAdmin() {
   return true;
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   if (!(await checkAdmin())) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
-    const productsArray = await request.json();
-
-    if (!Array.isArray(productsArray)) {
-      return NextResponse.json({ error: 'Неверный формат данных, ожидается массив' }, { status: 400 });
-    }
-
     const settings = await prisma.integrationSettings.findFirst();
     if (!settings) {
       return NextResponse.json({ error: 'Настройки интеграции не найдены' }, { status: 404 });
     }
 
-    const result = await syncProducts(settings, productsArray);
+    if (!settings.integrationApiUrl) {
+      return NextResponse.json({ error: 'URL API не настроен' }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, message: result.message });
+    const result = await syncProducts(settings);
+
+    return NextResponse.json({ success: true, result });
   } catch (error: any) {
-    console.error('Error in manual json sync:', error);
+    console.error('Error in automatic api sync:', error);
     return NextResponse.json({ error: error.message || 'Ошибка сервера при синхронизации' }, { status: 500 });
   }
 }

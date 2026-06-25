@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { sendOrderNotification, sendTelegramMessage } from '@/lib/telegram/telegram-service';
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Пожалуйста, авторизуйтесь для оформления заказа' }, { status: 401 });
     }
 
-    const { customerName, phone, address, comment } = await request.json();
+    const { customerName, phone, address, comment, telegramUserId, telegramChatId, source } = await request.json();
 
     if (!customerName || !phone || !address) {
       return NextResponse.json({ error: 'Имя, телефон и адрес обязательны' }, { status: 400 });
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       totalAmount += item.product.price * item.quantity;
     }
 
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newOrder = await tx.order.create({
         data: {
           userId: user.id,
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
           comment,
           totalAmount,
           status: 'NEW',
+          telegramUserId: telegramUserId || null,
+          telegramChatId: telegramChatId || null,
+          source: source || 'web',
           items: {
             create: cartItems.map((item) => ({
               productId: item.productId,
@@ -77,6 +81,25 @@ export async function POST(request: Request) {
 
       return newOrder;
     });
+
+    // 1. Send admin notification to Telegram channel/group
+    try {
+      await sendOrderNotification(order.id);
+    } catch (telegramError) {
+      console.error('Error sending Telegram notification to admin:', telegramError);
+    }
+
+    // 2. Notify the customer if checkout is from Telegram
+    if (source === 'telegram' && telegramChatId) {
+      try {
+        const messageText = `🔔 <b>Ваш заказ #${order.id.slice(-6).toUpperCase()} успешно принят!</b>\n\n` +
+          `Сумма: <b>${order.totalAmount.toLocaleString('ru-RU')} сум</b>\n` +
+          `Мы свяжемся с вами в ближайшее время для подтверждения.`;
+        await sendTelegramMessage(telegramChatId, messageText);
+      } catch (clientTelegramError) {
+        console.error('Error sending Telegram message to customer:', clientTelegramError);
+      }
+    }
 
     return NextResponse.json({ success: true, order });
   } catch (error) {
