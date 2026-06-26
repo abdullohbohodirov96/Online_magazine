@@ -8,13 +8,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-
     return NextResponse.json({
       nodeEnv: process.env.NODE_ENV,
       storageProvider: process.env.STORAGE_PROVIDER || null,
-      hasBlobReadWriteToken: Boolean(token),
-      blobTokenPrefix: token ? token.slice(0, 15) : null
+      hasBlobReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      hasBlobStoreId: Boolean(process.env.BLOB_STORE_ID),
+      hasBlobWebhookPublicKey: Boolean(process.env.BLOB_WEBHOOK_PUBLIC_KEY)
     });
   } catch (error: any) {
     console.error('Error in debug route:', error);

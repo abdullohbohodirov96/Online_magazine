@@ -10,10 +10,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
 
-    console.log("UPLOAD DEBUG", {
+    console.log("UPLOAD DEBUG OIDC", {
       nodeEnv: process.env.NODE_ENV,
       storageProvider: process.env.STORAGE_PROVIDER,
       hasBlobReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      hasBlobStoreId: Boolean(process.env.BLOB_STORE_ID),
     });
 
     const formData = await request.formData();
@@ -36,8 +37,11 @@ export async function POST(request: Request) {
 
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction) {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        return NextResponse.json({ error: 'Vercel Blob token topilmadi. Vercel Environment Variables ichida BLOB_READ_WRITE_TOKEN qo‘shing va redeploy qiling.' }, { status: 500 });
+      const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+      const hasStoreId = Boolean(process.env.BLOB_STORE_ID);
+
+      if (!hasBlobToken && !hasStoreId) {
+        return NextResponse.json({ error: 'Vercel Blob token topilmadi. Vercel Environment Variables ichida BLOB_READ_WRITE_TOKEN yoki BLOB_STORE_ID (OIDC) qo‘shing va redeploy qiling.' }, { status: 500 });
       }
 
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
