@@ -162,3 +162,10 @@ DATABASE_URL="ваша_production_db_url" npm run db:seed
 - [ ] **Поиск по ExternalProduct** работает при создании товара на сайте (поиск по `5449000000996`, `MILK1` или `Хлеб`).
 - [ ] **Синхронизация внешних товаров** (`/admin/integration`) позволяет загружать JSON и обновляет цены/остатки на сайте.
 - [ ] **Бэджи источников** товаров показывают `Manual` для добавленных вручную и `Integration` для интегрированных из программы.
+
+---
+
+## 🤖 Telegram Mini App
+
+Telegram Mini App URL:
+https://online-magazine-phi.vercel.app/miniapp
