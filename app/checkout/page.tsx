@@ -45,7 +45,7 @@ export default function CheckoutPage() {
     }
   }, [cart, orderSuccess, router]);
 
-  const handleAddressChange = (data: { address: string; latitude: number; longitude: number }) => {
+  const handleAddressChange = (data: { address: string; yandexAddress: string; latitude: number; longitude: number }) => {
     setAddress(data.address);
     setYandexAddress(data.address);
     setLatitude(data.latitude);
