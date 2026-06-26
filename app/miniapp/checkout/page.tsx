@@ -11,17 +11,36 @@ export default function CheckoutPage() {
   const { tgUser } = useTelegramWebApp();
   const router = useRouter();
 
-  const [customerName, setCustomerName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(
-    user?.phone && !user.phone.startsWith('tg_') ? user.phone : ''
-  );
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successOrder, setSuccessOrder] = useState<any>(null);
 
-  // Prefill name from Telegram WebApp user object
+  // Prefill details from user context or localStorage
+  useEffect(() => {
+    if (user) {
+      if (user.name) setCustomerName(user.name);
+      if (user.phone && !user.phone.startsWith('tg_')) {
+        setPhone(user.phone);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      if (!phone) {
+        const cachedPhone = localStorage.getItem('miniapp_phone');
+        if (cachedPhone) setPhone(cachedPhone);
+      }
+      if (!customerName) {
+        const cachedName = localStorage.getItem('miniapp_user_name');
+        if (cachedName) setCustomerName(cachedName);
+      }
+    }
+  }, [user]);
+
+  // Prefill name from Telegram profile if not set
   useEffect(() => {
     if (tgUser && !customerName) {
       setCustomerName([tgUser.first_name, tgUser.last_name].filter(Boolean).join(' '));
@@ -74,7 +93,7 @@ export default function CheckoutPage() {
   if (successOrder) {
     return (
       <MiniAppLayout title="Заказ оформлен" showBackButton={false}>
-        <div style={{ textAlign: 'center', padding: '3rem 1.5rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ textAlign: 'center', padding: '3rem 1.5rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
           <h3 style={{ fontWeight: 800, marginBottom: '0.75rem' }}>Заказ успешно принят!</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
@@ -97,7 +116,7 @@ export default function CheckoutPage() {
   if (cart.length === 0) {
     return (
       <MiniAppLayout title="Оформление заказа" showBackButton>
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+        <div style={{ textAlign: 'center', padding: '3rem 1rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxSizing: 'border-box' }}>
           <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Ваша корзина пуста</h4>
           <button className="btn btn-primary" onClick={() => router.push('/miniapp')}>
             В каталог
@@ -109,8 +128,8 @@ export default function CheckoutPage() {
 
   return (
     <MiniAppLayout title="Оформление заказа" showBackButton>
-      <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+      <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
           Детали доставки
         </h3>
 

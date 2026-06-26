@@ -31,10 +31,19 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
     // When miniapp loads, we also want to refetch user to make sure auth cookie is picked up
     fetchUser();
 
+    const handleViewport = () => {
+      const tg = (window as any).Telegram?.WebApp;
+      const height = tg?.viewportStableHeight || window.innerHeight;
+      document.documentElement.style.setProperty('--tg-viewport-height', `${height}px`);
+    };
+
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp as any;
       tg.ready();
       tg.expand();
+      
+      handleViewport();
+      tg.onEvent('viewportChanged', handleViewport);
       
       const themeParams = tg.themeParams;
       if (themeParams) {
@@ -47,6 +56,10 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
           hint: themeParams.hint_color || 'var(--muted)',
         });
       }
+
+      return () => {
+        tg.offEvent('viewportChanged', handleViewport);
+      };
     }
   }, []);
 
@@ -60,16 +73,20 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
   return (
     <div
       style={{
+        width: '100%',
         maxWidth: '480px',
+        minWidth: '0',
         margin: '0 auto',
-        minHeight: '100vh',
+        minHeight: 'var(--tg-viewport-height, 100dvh)',
         backgroundColor: theme.bg,
         color: theme.text,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         boxShadow: '0 0 10px rgba(0,0,0,0.05)',
-        paddingBottom: '80px',
+        paddingBottom: '110px',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
         fontFamily: 'var(--font-sans)',
       }}
     >
@@ -79,22 +96,26 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '1rem',
+          padding: '0.75rem 1rem',
           backgroundColor: theme.secondaryBg,
           borderBottom: '1px solid var(--border)',
           position: 'sticky',
           top: 0,
           zIndex: 100,
+          width: '100%',
+          gap: '8px',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
           {showBackButton && (
             <button
               onClick={() => router.back()}
               style={{
                 background: 'none',
                 border: 'none',
-                fontSize: '1.25rem',
+                fontSize: '1.2rem',
                 cursor: 'pointer',
                 color: theme.text,
                 padding: '0.25rem',
@@ -103,18 +124,18 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
               ⬅️
             </button>
           )}
-          <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{title}</h1>
+          <h1 style={{ fontSize: '1rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{title}</h1>
         </div>
         
         {tgUser && (
-          <div style={{ fontSize: '0.85rem', color: theme.hint }}>
+          <div style={{ fontSize: '0.8rem', color: theme.hint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
             Привет, {tgUser.first_name}!
           </div>
         )}
       </header>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '1rem' }}>
+      <main style={{ flex: 1, padding: '1rem 12px 10px 12px', width: '100%', boxSizing: 'border-box' }}>
         {children}
       </main>
 
@@ -122,10 +143,10 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
       <nav
         style={{
           position: 'fixed',
-          bottom: 0,
+          bottom: 'env(safe-area-inset-bottom, 0)',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '100%',
+          width: 'min(100%, 480px)',
           maxWidth: '480px',
           height: '64px',
           backgroundColor: theme.secondaryBg,
@@ -133,8 +154,10 @@ export default function MiniAppLayout({ children, title = 'BozorMarket', showBac
           display: 'flex',
           justifyContent: 'space-around',
           alignItems: 'center',
-          zIndex: 1000,
+          zIndex: 50,
           boxShadow: '0 -2px 10px rgba(0,0,0,0.03)',
+          boxSizing: 'border-box',
+          paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0))',
         }}
       >
         {navItems.map((item) => {

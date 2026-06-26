@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useApp } from '@/context/AppContext';
 
 declare global {
   interface Window {
@@ -33,6 +34,10 @@ declare global {
           onClick: (callback: () => void) => void;
           offClick: (callback: () => void) => void;
         };
+        onEvent: (eventType: string, eventHandler: () => void) => void;
+        offEvent: (eventType: string, eventHandler: () => void) => void;
+        viewportStableHeight: number;
+        themeParams: any;
       };
     };
   }
@@ -42,6 +47,7 @@ export function useTelegramWebApp() {
   const [tgUser, setTgUser] = useState<any>(null);
   const [initData, setInitData] = useState<string>('');
   const [isTelegram, setIsTelegram] = useState<boolean>(false);
+  const { fetchUser } = useApp();
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -52,7 +58,6 @@ export function useTelegramWebApp() {
       const user = webApp.initDataUnsafe?.user;
       const data = webApp.initData || '';
 
-      // Check if actually opened in Telegram
       if (data) {
         setIsTelegram(true);
         setTgUser(user || null);
@@ -66,8 +71,12 @@ export function useTelegramWebApp() {
         })
           .then((res) => res.json())
           .then((data) => {
-            if (data.success) {
+            if (data.success && data.user) {
+              localStorage.setItem('miniapp_phone', data.user.phone);
+              localStorage.setItem('miniapp_user_name', data.user.name || '');
+              localStorage.setItem('miniapp_auth_checked', 'true');
               console.log('Telegram backend authentication successful');
+              fetchUser(); // Sync the global context state immediately
             } else {
               console.error('Telegram backend authentication failed:', data.error);
             }

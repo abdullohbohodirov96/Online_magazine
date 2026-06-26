@@ -46,6 +46,11 @@ export default function ProfilePage() {
     fetchOrders();
     if (user) {
       setName(user.name || '');
+      if (user.phone && !user.phone.startsWith('tg_')) {
+        localStorage.setItem('miniapp_phone', user.phone);
+        localStorage.setItem('miniapp_user_name', user.name || '');
+        localStorage.setItem('miniapp_auth_checked', 'true');
+      }
     }
   }, [user]);
 
@@ -61,6 +66,9 @@ export default function ProfilePage() {
       });
       if (res.ok) {
         setEditingName(false);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('miniapp_user_name', name);
+        }
         fetchUser();
       } else {
         const data = await res.json();
@@ -111,10 +119,17 @@ export default function ProfilePage() {
         body: JSON.stringify({ phone, code }),
       });
       if (res.ok) {
+        const data = await res.json();
         setStep(1);
         setPhone('');
         setCode('');
         setLoginMessage('Телефон успешно привязан!');
+        
+        if (data.user) {
+          localStorage.setItem('miniapp_phone', data.user.phone);
+          localStorage.setItem('miniapp_user_name', data.user.name || '');
+          localStorage.setItem('miniapp_auth_checked', 'true');
+        }
         fetchUser();
       } else {
         const data = await res.json();
@@ -139,12 +154,20 @@ export default function ProfilePage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    localStorage.removeItem('miniapp_phone');
+    localStorage.removeItem('miniapp_user_name');
+    localStorage.removeItem('miniapp_auth_checked');
+    router.push('/miniapp');
+  };
+
   const isPlaceholderPhone = !user || user.phone.startsWith('tg_');
 
   return (
     <MiniAppLayout title="Профиль">
       {!user ? (
-        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.5rem', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.5rem', textAlign: 'center', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👤</div>
           <h4 style={{ fontWeight: 800, marginBottom: '1rem' }}>Вы зашли как гость</h4>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
@@ -188,9 +211,9 @@ export default function ProfilePage() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', boxSizing: 'border-box' }}>
           {/* Profile Card */}
-          <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
               <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)', fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 👤
@@ -224,7 +247,7 @@ export default function ProfilePage() {
                 <button className="btn btn-secondary" onClick={() => setEditingName(true)} style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}>
                   ✏️ Изменить имя
                 </button>
-                <button className="btn btn-danger" onClick={logout} style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}>
+                <button className="btn btn-danger" onClick={handleLogout} style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}>
                   🚪 Выйти
                 </button>
               </div>
@@ -275,7 +298,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Order History */}
-          <div>
+          <div style={{ boxSizing: 'border-box' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '0.75rem', opacity: 0.8 }}>
               История заказов
             </h3>
@@ -283,7 +306,7 @@ export default function ProfilePage() {
             {loadingOrders ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>Загрузка истории...</div>
             ) : orders.length === 0 ? (
-              <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '2rem', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: '2rem', textAlign: 'center', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
                 <p style={{ color: 'var(--muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>Заказов пока нет.</p>
               </div>
             ) : (
@@ -300,6 +323,7 @@ export default function ProfilePage() {
                         border: '1px solid var(--border)',
                         padding: '0.75rem',
                         boxShadow: 'var(--shadow-sm)',
+                        boxSizing: 'border-box',
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.4rem' }}>

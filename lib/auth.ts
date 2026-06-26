@@ -9,7 +9,7 @@ export async function signJWT(payload: { userId: string; phone: string; role: st
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('30d')
     .sign(key);
 }
 

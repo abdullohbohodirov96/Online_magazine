@@ -60,7 +60,7 @@ function MiniAppContent() {
   return (
     <MiniAppLayout title="BozorMarket">
       {/* Search Input */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
         <input
           type="text"
           placeholder="🔍 Поиск продуктов..."
@@ -68,18 +68,20 @@ function MiniAppContent() {
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
             width: '100%',
+            maxWidth: '100%',
             padding: '0.6rem 1rem',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border)',
             backgroundColor: 'var(--card-bg)',
             outline: 'none',
             fontSize: '0.9rem',
+            boxSizing: 'border-box',
           }}
         />
       </div>
 
       {/* Horizontal Scroll Categories */}
-      <div style={{ marginBottom: '1.25rem' }}>
+      <div style={{ marginBottom: '1.25rem', width: '100%', boxSizing: 'border-box' }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', opacity: 0.8 }}>
           Категории
         </h3>
@@ -88,8 +90,10 @@ function MiniAppContent() {
             display: 'flex',
             gap: '0.5rem',
             overflowX: 'auto',
-            paddingBottom: '0.5rem',
+            width: '100%',
+            paddingBottom: '4px',
             scrollbarWidth: 'none',
+            boxSizing: 'border-box',
           }}
           className="no-scrollbar"
         >
@@ -105,6 +109,7 @@ function MiniAppContent() {
               fontWeight: 600,
               whiteSpace: 'nowrap',
               cursor: 'pointer',
+              flex: '0 0 auto',
             }}
           >
             Все 🥦
@@ -125,6 +130,7 @@ function MiniAppContent() {
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
+                  flex: '0 0 auto',
                 }}
               >
                 {cat.name}
@@ -135,7 +141,7 @@ function MiniAppContent() {
       </div>
 
       {/* Product Catalog - 2 Column Grid */}
-      <div>
+      <div style={{ width: '100%', boxSizing: 'border-box' }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem', opacity: 0.8 }}>
           Товары
         </h3>
@@ -152,8 +158,10 @@ function MiniAppContent() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '0.75rem',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '10px',
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {products.map((prod) => {
@@ -163,7 +171,7 @@ function MiniAppContent() {
                   key={prod.id}
                   style={{
                     backgroundColor: 'var(--card-bg)',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: '14px',
                     border: '1px solid var(--border)',
                     overflow: 'hidden',
                     display: 'flex',
@@ -171,28 +179,33 @@ function MiniAppContent() {
                     cursor: 'pointer',
                     boxShadow: 'var(--shadow-sm)',
                     position: 'relative',
+                    width: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
                   }}
                   onClick={() => router.push(`/miniapp/product/${prod.id}`)}
                 >
                   {/* Image */}
                   <div
                     style={{
-                      height: '110px',
+                      width: '100%',
+                      aspectRatio: '1 / 1',
                       backgroundColor: 'var(--muted-light)',
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
                       position: 'relative',
+                      overflow: 'hidden',
                     }}
                   >
                     {prod.image ? (
                       <img
                         src={prod.image}
                         alt={prod.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
                     ) : (
-                      <span style={{ fontSize: '2.5rem' }}>🥦</span>
+                      <span style={{ fontSize: '2rem' }}>🥦</span>
                     )}
 
                     {prod.oldPrice && (
@@ -221,15 +234,17 @@ function MiniAppContent() {
                       display: 'flex',
                       flexDirection: 'column',
                       flex: 1,
+                      boxSizing: 'border-box',
+                      minWidth: 0,
                     }}
                   >
                     {/* Name (Max 2 lines) */}
                     <div
                       style={{
-                        fontSize: '0.8rem',
+                        fontSize: '13px',
                         fontWeight: 600,
-                        lineHeight: '1.2',
-                        height: '2.4em',
+                        lineHeight: '1.25',
+                        height: '2.5em',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         display: '-webkit-box',
@@ -253,34 +268,35 @@ function MiniAppContent() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         marginTop: 'auto',
+                        gap: '4px',
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         {prod.oldPrice && (
-                          <div style={{ fontSize: '0.65rem', color: 'var(--danger)', textDecoration: 'line-through', lineHeight: '1' }}>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--danger)', textDecoration: 'line-through', lineHeight: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {prod.oldPrice.toLocaleString('ru-RU')} сум
                           </div>
                         )}
-                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-hover)', lineHeight: '1.1' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary-hover)', lineHeight: '1.1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {prod.price.toLocaleString('ru-RU')} сум
                         </div>
                       </div>
 
                       {prod.stock > 0 ? (
                         qty > 0 ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
                             <button
                               onClick={() => updateCartQuantity(prod.id, qty - 1)}
                               style={{
-                                width: '24px',
-                                height: '24px',
+                                width: '22px',
+                                height: '22px',
                                 borderRadius: 'var(--radius-full)',
                                 border: 'none',
                                 backgroundColor: 'var(--muted-light)',
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                fontSize: '0.9rem',
+                                fontSize: '0.8rem',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -288,19 +304,19 @@ function MiniAppContent() {
                             >
                               -
                             </button>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{qty}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '12px', textAlign: 'center' }}>{qty}</span>
                             <button
                               onClick={() => updateCartQuantity(prod.id, qty + 1)}
                               style={{
-                                width: '24px',
-                                height: '24px',
+                                width: '22px',
+                                height: '22px',
                                 borderRadius: 'var(--radius-full)',
                                 border: 'none',
                                 backgroundColor: 'var(--primary-color)',
                                 color: '#ffffff',
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                fontSize: '0.9rem',
+                                fontSize: '0.8rem',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -313,7 +329,7 @@ function MiniAppContent() {
                           <button
                             onClick={() => addToCart(prod, 1)}
                             style={{
-                              padding: '0.35rem 0.6rem',
+                              padding: '0.35rem 0.5rem',
                               borderRadius: 'var(--radius-md)',
                               border: 'none',
                               backgroundColor: 'var(--primary-color)',
@@ -321,13 +337,14 @@ function MiniAppContent() {
                               fontSize: '0.75rem',
                               fontWeight: 700,
                               cursor: 'pointer',
+                              flexShrink: 0,
                             }}
                           >
                             +
                           </button>
                         )
                       ) : (
-                        <span style={{ fontSize: '0.7rem', color: 'var(--danger)', fontWeight: 600 }}>Ожидается</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--danger)', fontWeight: 600, flexShrink: 0 }}>Нет</span>
                       )}
                     </div>
                   </div>

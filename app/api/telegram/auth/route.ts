@@ -119,12 +119,14 @@ export async function POST(request: Request) {
       role: resolvedUser.role,
     });
 
+    const isProd = process.env.NODE_ENV === 'production';
     const cookieStore = await cookies();
     cookieStore.set('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
     });
 
     return NextResponse.json({
