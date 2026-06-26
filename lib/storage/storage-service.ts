@@ -2,22 +2,16 @@ import { put } from '@vercel/blob';
 import fs from 'fs';
 import path from 'path';
 
-export async function uploadFile(file: File) {
-  console.log("Blob token exists:", Boolean(process.env.BLOB_READ_WRITE_TOKEN));
-  console.log("Storage provider:", process.env.STORAGE_PROVIDER);
-  console.log("Node env:", process.env.NODE_ENV);
-
-  const isProduction = process.env.NODE_ENV === "production";
-  const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+export async function uploadFile(file: File): Promise<string> {
+  const isProduction = process.env.NODE_ENV === 'production';
 
   if (isProduction) {
-    if (!hasBlobToken) {
-      throw new Error("Storage не настроен. Добавьте BLOB_READ_WRITE_TOKEN в Vercel ENV.");
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      throw new Error("BLOB_READ_WRITE_TOKEN topilmadi. Vercel Environment Variables ichida BLOB_READ_WRITE_TOKEN qo‘shing va redeploy qiling.");
     }
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-
-    const blob = await put(`uploads/${Date.now()}-${safeName}`, file, {
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const blob = await put(`uploads/${Date.now()}-${safeFileName}`, file, {
       access: "public",
     });
 
@@ -27,7 +21,7 @@ export async function uploadFile(file: File) {
   return uploadLocalFile(file);
 }
 
-// Local upload only for development (NODE_ENV !== "production")
+// Local upload only for development
 async function uploadLocalFile(file: File): Promise<string> {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
