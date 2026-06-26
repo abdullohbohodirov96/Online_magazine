@@ -104,39 +104,47 @@ export async function sendOrderNotification(orderId: string): Promise<boolean> {
       CANCELLED: 'Отменен ❌',
     };
 
-    const text = `🛒 <b>Новый заказ #${order.id.slice(-6).toUpperCase()}</b>
+    let addressText = `📍 <b>Адрес:</b> ${order.address}`;
+    if (order.latitude && order.longitude) {
+      const mapLink = `https://yandex.com/maps/?ll=${order.longitude},${order.latitude}&z=17&pt=${order.longitude},${order.latitude},pm2rdm`;
+      addressText += `\n🗺 <b>Карта:</b> <a href="${mapLink}">Yandex Maps</a>`;
+    }
 
-` +
-      `👤 <b>Клиент:</b> ${order.customerName}
-` +
-      `📞 <b>Телефон:</b> ${order.phone}
-` +
-      `📍 <b>Адрес:</b> ${order.address}
-` +
-      `💬 <b>Комментарий:</b> ${order.comment || 'нет'}
+    let deliveryDetails = '';
+    if (order.deliveryEntrance) deliveryDetails += `Подъезд: ${order.deliveryEntrance} `;
+    if (order.deliveryFloor) deliveryDetails += `Этаж: ${order.deliveryFloor} `;
+    if (order.deliveryApartment) deliveryDetails += `Кв: ${order.deliveryApartment} `;
+    if (order.deliveryIntercom) deliveryDetails += `Домофон: ${order.deliveryIntercom}`;
 
-` +
-      `📦 <b>Товары:</b>
-${itemsText}
+    if (deliveryDetails) {
+      addressText += `\n📦 <b>Детали доставки:</b> ${deliveryDetails.trim()}`;
+    }
+    if (order.addressComment) {
+      addressText += `\n💬 <b>Уточнение адреса:</b> ${order.addressComment}`;
+    }
 
-` +
-      `💰 <b>Итого:</b> <b>${order.totalAmount.toLocaleString('ru-RU')} UZS</b>
-
-` +
+    const text = `🛒 <b>Новый заказ #${order.id.slice(-6).toUpperCase()}</b>\n\n` +
+      `👤 <b>Клиент:</b> ${order.customerName}\n` +
+      `📞 <b>Телефон:</b> ${order.phone}\n` +
+      `${addressText}\n` +
+      `💬 <b>Комментарий:</b> ${order.comment || 'нет'}\n\n` +
+      `📦 <b>Товары:</b>\n${itemsText}\n\n` +
+      `💰 <b>Итого:</b> <b>${order.totalAmount.toLocaleString('ru-RU')} UZS</b>\n\n` +
       `<b>Статус:</b> ${statusNames[order.status] || order.status}`;
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || settings.miniAppUrl;
     const replyMarkup = {
       inline_keyboard: [
         [
-          { text: '✅ Принять', callback_data: `status:ACCEPTED:${order.id}` },
-          { text: '🚚 В доставку', callback_data: `status:DELIVERING:${order.id}` }
+          { text: '✅ Принять', callback_data: `order:accept:${order.id}` },
+          { text: '🚚 В доставку', callback_data: `order:delivery:${order.id}` }
         ],
         [
-          { text: '🏁 Завершить', callback_data: `status:COMPLETED:${order.id}` },
-          { text: '❌ Отменить', callback_data: `status:CANCELLED:${order.id}` }
+          { text: '🏁 Завершить', callback_data: `order:complete:${order.id}` },
+          { text: '❌ Отменить', callback_data: `order:cancel:${order.id}` }
         ],
         [
-          { text: '🔗 Открыть заказ', url: `${settings.miniAppUrl}/admin?tab=orders` }
+          { text: '🔗 Открыть заказ', url: `${appUrl}/admin?orderId=${order.id}` }
         ]
       ]
     };

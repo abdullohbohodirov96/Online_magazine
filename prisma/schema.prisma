@@ -113,6 +113,14 @@ model Order {
   telegramUserId String?
   source         String      @default("web")
   telegramChatId String?
+  addressComment   String?
+  latitude         Float?
+  longitude        Float?
+  yandexAddress    String?
+  deliveryEntrance String?
+  deliveryFloor    String?
+  deliveryApartment String?
+  deliveryIntercom String?
 }
 
 model OrderItem {

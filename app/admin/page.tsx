@@ -214,6 +214,32 @@ function OrdersTab() {
                       <strong>{order.customerName}</strong><br/>
                       <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{order.phone}</span><br/>
                       <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{order.address}</span>
+                      {order.latitude && order.longitude && (
+                        <>
+                          <br/>
+                          <a
+                            href={`https://yandex.com/maps/?ll=${order.longitude},${order.latitude}&z=17&pt=dots ${order.longitude},${order.latitude},pm2rdm`.replace('\\dots ', '')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px' }}
+                          >
+                            🗺️ Карта Яндекса ({order.latitude.toFixed(6)}, {order.longitude.toFixed(6)})
+                          </a>
+                        </>
+                      )}
+                      {(order.deliveryEntrance || order.deliveryFloor || order.deliveryApartment || order.deliveryIntercom) && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '3px' }}>
+                          {order.deliveryEntrance && `Подъезд: ${order.deliveryEntrance} `}
+                          {order.deliveryFloor && `Этаж: ${order.deliveryFloor} `}
+                          {order.deliveryApartment && `Кв: ${order.deliveryApartment} `}
+                          {order.deliveryIntercom && `Домофон: ${order.deliveryIntercom}`}
+                        </div>
+                      )}
+                      {order.addressComment && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic', marginTop: '2px' }}>
+                          💬 {order.addressComment}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{formatPrice(order.totalAmount)}</td>
                     <td style={{ padding: '0.75rem 1rem' }}>

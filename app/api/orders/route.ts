@@ -11,7 +11,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Пожалуйста, авторизуйтесь для оформления заказа' }, { status: 401 });
     }
 
-    const { customerName, phone, address, comment, telegramUserId, telegramChatId, source } = await request.json();
+    const {
+      customerName,
+      phone,
+      address,
+      comment,
+      telegramUserId,
+      telegramChatId,
+      source,
+      addressComment,
+      latitude,
+      longitude,
+      yandexAddress,
+      deliveryEntrance,
+      deliveryFloor,
+      deliveryApartment,
+      deliveryIntercom
+    } = await request.json();
 
     if (!customerName || !phone || !address) {
       return NextResponse.json({ error: 'Имя, телефон и адрес обязательны' }, { status: 400 });
@@ -49,6 +65,14 @@ export async function POST(request: Request) {
           telegramUserId: telegramUserId || null,
           telegramChatId: telegramChatId || null,
           source: source || 'web',
+          addressComment: addressComment || null,
+          latitude: latitude ? parseFloat(latitude) : null,
+          longitude: longitude ? parseFloat(longitude) : null,
+          yandexAddress: yandexAddress || null,
+          deliveryEntrance: deliveryEntrance || null,
+          deliveryFloor: deliveryFloor || null,
+          deliveryApartment: deliveryApartment || null,
+          deliveryIntercom: deliveryIntercom || null,
           items: {
             create: cartItems.map((item) => ({
               productId: item.productId,

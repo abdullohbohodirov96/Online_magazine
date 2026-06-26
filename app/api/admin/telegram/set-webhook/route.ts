@@ -25,9 +25,12 @@ export async function POST() {
     }
 
     const webhookUrl = `${settings.miniAppUrl}/api/telegram/webhook`;
-    const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET || 'secret';
+    const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
 
-    const tgApiUrl = `https://api.telegram.org/bot${settings.botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${secretToken}`;
+    let tgApiUrl = `https://api.telegram.org/bot${settings.botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+    if (secretToken) {
+      tgApiUrl += `&secret_token=${encodeURIComponent(secretToken)}`;
+    }
 
     const response = await fetch(tgApiUrl);
     const data = await response.json();

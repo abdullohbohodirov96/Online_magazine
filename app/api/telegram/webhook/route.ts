@@ -9,26 +9,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Бот не настроен' }, { status: 500 });
     }
 
-    // Secret header check (optional)
+    // Secret header check
     const secretToken = request.headers.get('x-telegram-bot-api-secret-token');
     const localSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (localSecret && secretToken !== localSecret) {
-      return NextResponse.json({ error: 'Доступ запрещен: неверный secret token' }, { status: 403 });
+    
+    if (localSecret) {
+      if (secretToken !== localSecret) {
+        console.warn('Webhook security warning: invalid secret token received:', secretToken);
+        return NextResponse.json({ error: 'Доступ запрещен: неверный secret token' }, { status: 403 });
+      }
+    } else {
+      console.warn('Webhook security warning: TELEGRAM_WEBHOOK_SECRET is not set in env.');
     }
 
     const payload = await request.json();
+    console.log("TELEGRAM WEBHOOK UPDATE", JSON.stringify(payload, null, 2));
 
     // 1. Handle Inline Button Callbacks (callback_query)
     if (payload.callback_query) {
       const callbackQuery = payload.callback_query;
       const data = callbackQuery.data || '';
+      console.log("TELEGRAM CALLBACK DATA", data);
+      
       const chatId = callbackQuery.message?.chat?.id;
       const messageId = callbackQuery.message?.message_id;
 
-      if (data.startsWith('status:') && chatId && messageId) {
-        const [_, status, orderId] = data.split(':');
+      if (data.startsWith('order:') && chatId && messageId) {
+        const [_, action, orderId] = data.split(':');
+        
+        let newStatus: any;
+        if (action === 'accept') newStatus = 'ACCEPTED';
+        else if (action === 'delivery') newStatus = 'DELIVERING';
+        else if (action === 'complete') newStatus = 'COMPLETED';
+        else if (action === 'cancel') newStatus = 'CANCELLED';
 
         try {
+          const statusNames: Record<string, string> = {
+            NEW: 'Новый 🆕',
+            ACCEPTED: 'Принят ✅',
+            ASSEMBLING: 'Сборка 📦',
+            DELIVERING: 'В пути 🚚',
+            COMPLETED: 'Выполнен 🎉',
+            CANCELLED: 'Отменен ❌',
+          };
+
+          if (orderId === 'test_order_id') {
+            await answerCallback(
+              callbackQuery.id,
+              `[ТЕСТ] Статус тестового заказа изменен на: ${statusNames[newStatus] || newStatus}`,
+              settings.botToken
+            );
+            
+            const text = '🔔 <b>Тестовое сообщение от BozorMarket (Тестовый Заказ #TEST)</b>\n\n' +
+              'Ваши настройки уведомлений Telegram успешно проверены и работают.\n\n' +
+              `<b>[ТЕСТ] Статус изменен на: ${statusNames[newStatus] || newStatus}</b>`;
+              
+            const replyMarkup = {
+              inline_keyboard: [
+                [
+                  { text: '✅ Принять', callback_data: 'order:accept:test_order_id' },
+                  { text: '🚚 В доставку', callback_data: 'order:delivery:test_order_id' }
+                ],
+                [
+                  { text: '🏁 Завершить', callback_data: 'order:complete:test_order_id' },
+                  { text: '❌ Отменить', callback_data: 'order:cancel:test_order_id' }
+                ]
+              ]
+            };
+            
+            await editTelegramMessage(String(chatId), messageId, text, replyMarkup);
+            return NextResponse.json({ success: true });
+          }
+
           const order = await prisma.order.findUnique({
             where: { id: orderId },
             include: { items: true },
@@ -39,26 +91,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
           }
 
-          // Update status
+          // Update status in DB
           const updatedOrder = await prisma.order.update({
             where: { id: orderId },
-            data: { status: status as any },
+            data: { status: newStatus },
             include: { items: true },
           });
 
           // Answer Telegram callback alert
-          const statusNames: Record<string, string> = {
-            NEW: 'Новый 🆕',
-            ACCEPTED: 'Принят ✅',
-            ASSEMBLING: 'Сборка 📦',
-            DELIVERING: 'В пути 🚚',
-            COMPLETED: 'Выполнен 🎉',
-            CANCELLED: 'Отменен ❌',
-          };
-          
           await answerCallback(
             callbackQuery.id,
-            `Статус заказа #${order.id.slice(-6).toUpperCase()} изменен на: ${statusNames[status] || status}`,
+            `Статус заказа #${order.id.slice(-6).toUpperCase()} изменен на: ${statusNames[newStatus] || newStatus}`,
             settings.botToken
           );
 
@@ -67,39 +110,47 @@ export async function POST(request: Request) {
             return `${idx + 1}. ${item.productName} x ${item.quantity} — ${item.total.toLocaleString('ru-RU')} сум`;
           }).join('\n');
 
-          const text = `🛒 <b>Новый заказ #${updatedOrder.id.slice(-6).toUpperCase()}</b>
+          let addressText = `📍 <b>Адрес:</b> ${updatedOrder.address}`;
+          if (updatedOrder.latitude && updatedOrder.longitude) {
+            const mapLink = `https://yandex.com/maps/?ll=${updatedOrder.longitude},${updatedOrder.latitude}&z=17&pt=${updatedOrder.longitude},${updatedOrder.latitude},pm2rdm`;
+            addressText += `\n🗺 <b>Карта:</b> <a href="${mapLink}">Yandex Maps</a>`;
+          }
 
-` +
-            `👤 <b>Клиент:</b> ${updatedOrder.customerName}
-` +
-            `📞 <b>Телефон:</b> ${updatedOrder.phone}
-` +
-            `📍 <b>Адрес:</b> ${updatedOrder.address}
-` +
-            `💬 <b>Комментарий:</b> ${updatedOrder.comment || 'нет'}
+          let deliveryDetails = '';
+          if (updatedOrder.deliveryEntrance) deliveryDetails += `Подъезд: ${updatedOrder.deliveryEntrance} `;
+          if (updatedOrder.deliveryFloor) deliveryDetails += `Этаж: ${updatedOrder.deliveryFloor} `;
+          if (updatedOrder.deliveryApartment) deliveryDetails += `Кв: ${updatedOrder.deliveryApartment} `;
+          if (updatedOrder.deliveryIntercom) deliveryDetails += `Домофон: ${updatedOrder.deliveryIntercom}`;
 
-` +
-            `📦 <b>Товары:</b>
-${itemsText}
+          if (deliveryDetails) {
+            addressText += `\n📦 <b>Детали доставки:</b> ${deliveryDetails.trim()}`;
+          }
+          if (updatedOrder.addressComment) {
+            addressText += `\n💬 <b>Уточнение адреса:</b> ${updatedOrder.addressComment}`;
+          }
 
-` +
-            `💰 <b>Итого:</b> <b>${updatedOrder.totalAmount.toLocaleString('ru-RU')} UZS</b>
-
-` +
+          const text = `🛒 <b>Новый заказ #${updatedOrder.id.slice(-6).toUpperCase()}</b>\n\n` +
+            `👤 <b>Клиент:</b> ${updatedOrder.customerName}\n` +
+            `📞 <b>Телефон:</b> ${updatedOrder.phone}\n` +
+            `${addressText}\n` +
+            `💬 <b>Комментарий:</b> ${updatedOrder.comment || 'нет'}\n\n` +
+            `📦 <b>Товары:</b>\n${itemsText}\n\n` +
+            `💰 <b>Итого:</b> <b>${updatedOrder.totalAmount.toLocaleString('ru-RU')} UZS</b>\n\n` +
             `<b>Статус:</b> ${statusNames[updatedOrder.status] || updatedOrder.status}`;
 
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || settings.miniAppUrl;
           const replyMarkup = {
             inline_keyboard: [
               [
-                { text: '✅ Принять', callback_data: `status:ACCEPTED:${updatedOrder.id}` },
-                { text: '🚚 В доставку', callback_data: `status:DELIVERING:${updatedOrder.id}` }
+                { text: '✅ Принять', callback_data: `order:accept:${updatedOrder.id}` },
+                { text: '🚚 В доставку', callback_data: `order:delivery:${updatedOrder.id}` }
               ],
               [
-                { text: '🏁 Завершить', callback_data: `status:COMPLETED:${updatedOrder.id}` },
-                { text: '❌ Отменить', callback_data: `status:CANCELLED:${updatedOrder.id}` }
+                { text: '🏁 Завершить', callback_data: `order:complete:${updatedOrder.id}` },
+                { text: '❌ Отменить', callback_data: `order:cancel:${updatedOrder.id}` }
               ],
               [
-                { text: '🔗 Открыть заказ', url: `${settings.miniAppUrl}/admin?tab=orders` }
+                { text: '🔗 Открыть заказ', url: `${appUrl}/admin?orderId=${updatedOrder.id}` }
               ]
             ]
           };
@@ -108,16 +159,14 @@ ${itemsText}
 
           // If the order came from a specific telegram user (checkout from telegram), notify them too!
           if (updatedOrder.telegramChatId) {
-            const customerText = `🔔 <b>Статус вашего заказа #${updatedOrder.id.slice(-6).toUpperCase()} изменен!</b>
-
-` +
+            const customerText = `🔔 <b>Статус вашего заказа #${updatedOrder.id.slice(-6).toUpperCase()} изменен!</b>\n\n` +
               `Новый статус: <b>${statusNames[updatedOrder.status] || updatedOrder.status}</b>`;
             await sendTelegramMessage(updatedOrder.telegramChatId, customerText);
           }
 
         } catch (e: any) {
           console.error('Error handling callback:', e);
-          await answerCallback(callbackQuery.id, 'Ошибка обновления статуса: ' + e.message, settings.botToken);
+          await answerCallback(callbackQuery.id, 'Ошибка: ' + e.message, settings.botToken);
         }
       }
       return NextResponse.json({ success: true });
@@ -141,7 +190,6 @@ ${itemsText}
         };
         await sendTelegramMessage(chatId, welcomeText, replyMarkup);
       } else if (text.startsWith('/orders')) {
-        // Query user orders if linked
         const tgUser = await prisma.telegramUser.findUnique({
           where: { telegramId },
           include: { user: { include: { orders: { orderBy: { createdAt: 'desc' }, take: 5 } } } }
@@ -159,13 +207,12 @@ ${itemsText}
               COMPLETED: 'Выполнен 🎉',
               CANCELLED: 'Отменен ❌',
             };
-            ordersText += `${i + 1}. Заказ <b>#${o.id.slice(-6).toUpperCase()}</b> от ${date}
-` +
-              `   Сумма: ${o.totalAmount.toLocaleString('ru-RU')} сум
-` +
-              `   Статус: ${statusNames[o.status] || o.status}
-
-`;
+            ordersText += `${i + 1}. Заказ <b>#${o.id.slice(-6).toUpperCase()}</b> от dots ${date}\n` +
+              `   Сумма: ${o.totalAmount.toLocaleString('ru-RU')} сум\n` +
+              `   Статус: ${statusNames[o.status] || o.status}\n\n`;
+            // remove dots
+            ordersText = ordersText.replace('\n\n', '').replace('', ' ');
+            ordersText += '\n';
           });
           await sendTelegramMessage(chatId, ordersText);
         } else {
@@ -191,7 +238,7 @@ ${itemsText}
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in Telegram Webhook route:', error);
-    return NextResponse.json({ success: true }); // Always return 200 to Telegram to prevent retry loops
+    return NextResponse.json({ success: true });
   }
 }
 

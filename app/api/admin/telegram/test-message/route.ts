@@ -21,10 +21,24 @@ export async function POST() {
       return NextResponse.json({ error: 'ID чата администратора не настроен' }, { status: 400 });
     }
 
-    const testText = '🔔 <b>Тестовое сообщение от BozorMarket!</b>\n\n' +
-      'Ваши настройки уведомлений Telegram успешно проверены и работают.';
+    const testText = '🔔 <b>Тестовое сообщение от BozorMarket (Тестовый Заказ #TEST)</b>\n\n' +
+      'Ваши настройки уведомлений Telegram успешно проверены и работают.\n\n' +
+      'Ниже представлены тестовые кнопки для проверки изменения статуса:';
 
-    const success = await sendTelegramMessage(settings.adminChatId, testText);
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: '✅ Принять', callback_data: 'order:accept:test_order_id' },
+          { text: '🚚 В доставку', callback_data: 'order:delivery:test_order_id' }
+        ],
+        [
+          { text: '🏁 Завершить', callback_data: 'order:complete:test_order_id' },
+          { text: '❌ Отменить', callback_data: 'order:cancel:test_order_id' }
+        ]
+      ]
+    };
+
+    const success = await sendTelegramMessage(settings.adminChatId, testText, replyMarkup);
 
     if (success) {
       return NextResponse.json({ success: true, message: 'Тестовое сообщение успешно отправлено!' });

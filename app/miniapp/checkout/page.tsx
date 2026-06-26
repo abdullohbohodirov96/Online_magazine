@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { useTelegramWebApp } from '@/lib/telegram/useTelegramWebApp';
 import MiniAppLayout from '@/components/MiniAppLayout';
+import YandexAddressPicker from '@/components/YandexAddressPicker';
 
 export default function CheckoutPage() {
   const { cart, totalAmount, clearCart, user } = useApp();
@@ -18,6 +19,16 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successOrder, setSuccessOrder] = useState<any>(null);
+
+  // New Yandex maps and entrance fields
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [yandexAddress, setYandexAddress] = useState('');
+  const [deliveryEntrance, setDeliveryEntrance] = useState('');
+  const [deliveryFloor, setDeliveryFloor] = useState('');
+  const [deliveryApartment, setDeliveryApartment] = useState('');
+  const [deliveryIntercom, setDeliveryIntercom] = useState('');
+  const [addressComment, setAddressComment] = useState('');
 
   // Prefill details from user context or localStorage
   useEffect(() => {
@@ -47,6 +58,13 @@ export default function CheckoutPage() {
     }
   }, [tgUser]);
 
+  const handleAddressChange = (data: { address: string; latitude: number; longitude: number }) => {
+    setAddress(data.address);
+    setYandexAddress(data.address);
+    setLatitude(data.latitude);
+    setLongitude(data.longitude);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
@@ -67,6 +85,14 @@ export default function CheckoutPage() {
       telegramUserId: tgUser?.id ? String(tgUser.id) : null,
       telegramChatId: tgUser?.id ? String(tgUser.id) : null,
       source: 'telegram',
+      addressComment,
+      latitude,
+      longitude,
+      yandexAddress,
+      deliveryEntrance,
+      deliveryFloor,
+      deliveryApartment,
+      deliveryIntercom
     };
 
     try {
@@ -97,7 +123,7 @@ export default function CheckoutPage() {
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
           <h3 style={{ fontWeight: 800, marginBottom: '0.75rem' }}>Заказ успешно принят!</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
-            Номер заказа: <strong>#{successOrder.id.slice(-6).toUpperCase()}</strong>
+            Номер заказа: <strong>#${successOrder.id.slice(-6).toUpperCase()}</strong>
           </p>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
             Сумма заказа: <strong>{successOrder.totalAmount.toLocaleString('ru-RU')} сум</strong>
@@ -164,15 +190,71 @@ export default function CheckoutPage() {
             />
           </div>
 
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
             <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 700 }}>Адрес доставки *</label>
-            <textarea
+            <YandexAddressPicker
+              initialAddress={address}
+              initialLatitude={latitude || undefined}
+              initialLongitude={longitude || undefined}
+              onChange={handleAddressChange}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '10px', marginTop: '10px' }}>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Подъезд</label>
+              <input
+                type="text"
+                className="form-input"
+                value={deliveryEntrance}
+                onChange={(e) => setDeliveryEntrance(e.target.value)}
+                placeholder="1"
+                style={{ padding: '0.5rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Этаж</label>
+              <input
+                type="text"
+                className="form-input"
+                value={deliveryFloor}
+                onChange={(e) => setDeliveryFloor(e.target.value)}
+                placeholder="4"
+                style={{ padding: '0.5rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Кв./Оф.</label>
+              <input
+                type="text"
+                className="form-input"
+                value={deliveryApartment}
+                onChange={(e) => setDeliveryApartment(e.target.value)}
+                placeholder="24"
+                style={{ padding: '0.5rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Домофон</label>
+              <input
+                type="text"
+                className="form-input"
+                value={deliveryIntercom}
+                onChange={(e) => setDeliveryIntercom(e.target.value)}
+                placeholder="24К"
+                style={{ padding: '0.5rem' }}
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '10px' }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Уточнение адреса / Ориентир</label>
+            <input
+              type="text"
               className="form-input"
-              rows={2}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Улица, дом, квартира, ориентир"
-              required
+              value={addressComment}
+              onChange={(e) => setAddressComment(e.target.value)}
+              placeholder="Например: вход со двора, шлагбаум"
             />
           </div>
 

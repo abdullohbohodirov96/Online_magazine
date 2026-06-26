@@ -36,7 +36,9 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { orderId, status } = await request.json();
+    const body = await request.json();
+    const orderId = body.orderId || body.id;
+    const status = body.status;
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });

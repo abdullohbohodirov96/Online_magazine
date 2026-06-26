@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import { useApp } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
 import { useTelegramWebApp } from '@/lib/telegram/useTelegramWebApp';
+import YandexAddressPicker from '@/components/YandexAddressPicker';
 
 export default function CheckoutPage() {
   const { user, cart, totalAmount, fetchCart, setShowLoginModal } = useApp();
@@ -21,6 +22,16 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const [orderSuccess, setOrderSuccess] = useState<any>(null);
 
+  // New Yandex maps and entrance fields
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [yandexAddress, setYandexAddress] = useState('');
+  const [deliveryEntrance, setDeliveryEntrance] = useState('');
+  const [deliveryFloor, setDeliveryFloor] = useState('');
+  const [deliveryApartment, setDeliveryApartment] = useState('');
+  const [deliveryIntercom, setDeliveryIntercom] = useState('');
+  const [addressComment, setAddressComment] = useState('');
+
   useEffect(() => {
     if (user) {
       setName(user.name || '');
@@ -33,6 +44,13 @@ export default function CheckoutPage() {
       router.push('/');
     }
   }, [cart, orderSuccess, router]);
+
+  const handleAddressChange = (data: { address: string; latitude: number; longitude: number }) => {
+    setAddress(data.address);
+    setYandexAddress(data.address);
+    setLatitude(data.latitude);
+    setLongitude(data.longitude);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +74,14 @@ export default function CheckoutPage() {
           telegramUserId: tgUser ? String(tgUser.id) : null,
           telegramChatId: tgUser ? String(tgUser.id) : null,
           source: isTelegram ? 'telegram' : 'web',
+          addressComment,
+          latitude,
+          longitude,
+          yandexAddress,
+          deliveryEntrance,
+          deliveryFloor,
+          deliveryApartment,
+          deliveryIntercom
         }),
       });
       
@@ -89,7 +115,7 @@ export default function CheckoutPage() {
             <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🎉</div>
             <h4 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-color)' }}>Заказ успешно принят!</h4>
             <p style={{ color: 'var(--muted)', marginTop: '0.5rem', marginBottom: '2rem' }}>
-              Номер вашего заказа: <strong>#{orderSuccess.id.slice(-6).toUpperCase()}</strong>.<br/>
+              Номер вашего заказа: <strong>#${orderSuccess.id.slice(-6).toUpperCase()}</strong>.<br/>
               Мы свяжемся с вами в ближайшее время для подтверждения.
             </p>
             
@@ -107,6 +133,19 @@ export default function CheckoutPage() {
                 <span style={{ color: 'var(--muted)' }}>Адрес доставки:</span>
                 <span>{orderSuccess.address}</span>
               </div>
+              {orderSuccess.latitude && orderSuccess.longitude && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--muted)' }}>Координаты:</span>
+                  <a
+                    href={`https://yandex.com/maps/?ll=${orderSuccess.longitude},dots ${orderSuccess.latitude}&z=17&pt=${orderSuccess.longitude},${orderSuccess.latitude},pm2rdm`.replace('\dots ', '')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--primary-color)', fontWeight: 600 }}
+                  >
+                    📍 На карте (${orderSuccess.latitude.toFixed(5)}, ${orderSuccess.longitude.toFixed(5)})
+                  </a>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px dashed var(--border)', fontWeight: 700 }}>
                 <span>Сумма к оплате:</span>
                 <span style={{ color: 'var(--primary-hover)' }}>{formatPrice(orderSuccess.totalAmount)}</span>
@@ -170,25 +209,79 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label className="form-label">Адрес доставки *</label>
-                    <textarea
-                      className="form-input"
-                      placeholder="Улица, дом, квартира, ориентир"
-                      rows={3}
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      required
-                      disabled={loading}
-                      style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                    <YandexAddressPicker
+                      initialAddress={address}
+                      initialLatitude={latitude || undefined}
+                      initialLongitude={longitude || undefined}
+                      onChange={handleAddressChange}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Комментарий к заказу</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Подъезд</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={deliveryEntrance}
+                        onChange={(e) => setDeliveryEntrance(e.target.value)}
+                        placeholder="1"
+                        style={{ padding: '0.5rem' }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Этаж</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={deliveryFloor}
+                        onChange={(e) => setDeliveryFloor(e.target.value)}
+                        placeholder="4"
+                        style={{ padding: '0.5rem' }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Кв./Офис</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={deliveryApartment}
+                        onChange={(e) => setDeliveryApartment(e.target.value)}
+                        placeholder="24"
+                        style={{ padding: '0.5rem' }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Домофон</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={deliveryIntercom}
+                        onChange={(e) => setDeliveryIntercom(e.target.value)}
+                        placeholder="24К"
+                        style={{ padding: '0.5rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '10px' }}>
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Уточнение адреса / Ориентир</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={addressComment}
+                      onChange={(e) => setAddressComment(e.target.value)}
+                      placeholder="Например: вход со двора, шлагбаум"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '10px' }}>
+                    <label className="form-label">Комментарий к заказу (Пожелания)</label>
                     <textarea
                       className="form-input"
-                      placeholder="Особые пожелания курьеру (например, бесконтактная доставка)"
+                      placeholder="Особые пожелания курьеру"
                       rows={2}
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
