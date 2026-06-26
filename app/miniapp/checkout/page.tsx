@@ -77,6 +77,34 @@ export default function CheckoutPage() {
     setLoading(true);
     setError('');
 
+    let finalLat = latitude;
+    let finalLng = longitude;
+    let finalYandexAddress = yandexAddress;
+
+    if (address && (!finalLat || !finalLng)) {
+      try {
+        const ymaps = (window as any).ymaps;
+        if (ymaps) {
+          const searchQuery = address.toLowerCase().includes('toshkent') || address.toLowerCase().includes('ташкент') || address.toLowerCase().includes('tashkent')
+            ? address
+            : 'Toshkent, ' + address;
+          const res = await ymaps.geocode(searchQuery, { results: 1 });
+          const firstGeoObject = res.geoObjects.get(0);
+          if (firstGeoObject) {
+            const coords = firstGeoObject.geometry.getCoordinates();
+            finalLat = coords[0];
+            finalLng = coords[1];
+            finalYandexAddress = firstGeoObject.getAddressLine();
+            setLatitude(finalLat);
+            setLongitude(finalLng);
+            setYandexAddress(finalYandexAddress);
+          }
+        }
+      } catch (err) {
+        console.error('Submit geocoding error:', err);
+      }
+    }
+
     const payload = {
       customerName: customerName.trim(),
       phone: phone.trim(),
@@ -86,9 +114,9 @@ export default function CheckoutPage() {
       telegramChatId: tgUser?.id ? String(tgUser.id) : null,
       source: 'telegram',
       addressComment,
-      latitude,
-      longitude,
-      yandexAddress,
+      latitude: finalLat,
+      longitude: finalLng,
+      yandexAddress: finalYandexAddress,
       deliveryEntrance,
       deliveryFloor,
       deliveryApartment,

@@ -25,13 +25,13 @@ export default function YandexAddressPicker({
   const [address, setAddress] = useState(initialAddress);
   const [coords, setCoords] = useState<[number, number]>([initialLatitude, initialLongitude]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingMap, setLoadingMap] = useState(true);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
+  const [hasSelected, setHasSelected] = useState(false);
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null); // This is the ymaps Map instance!
   const placemarkRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSelectingSuggestionRef = useRef(false);
@@ -43,9 +43,128 @@ export default function YandexAddressPicker({
     }
   }, [initialAddress]);
 
+  function buildSearchQuery(value: string) {
+    const v = value.trim();
+    const lower = v.toLowerCase();
+
+    if (
+      lower.includes("toshkent") ||
+      lower.includes("ташкент") ||
+      lower.includes("tashkent")
+    ) {
+      return v;
+    }
+
+    return `Toshkent, ${v}`;
+  }
+
+  async function searchAddress(value: string) {
+    const ymaps = (window as any).ymaps;
+    if (!ymaps) return [];
+
+    const searchQuery = buildSearchQuery(value);
+    console.log("ADDRESS INPUT CHANGED:", value);
+    console.log("YANDEX SEARCH START:", value);
+
+    try {
+      const res = await ymaps.geocode(searchQuery, {
+        results: 7,
+        boundedBy: [[41.15, 68.95], [41.45, 69.45]],
+        strictBounds: false
+      });
+
+      const items = res.geoObjects.toArray().map((obj: any) => {
+        const coords = obj.geometry.getCoordinates();
+        const address = obj.getAddressLine();
+
+        return {
+          address,
+          latitude: coords[0],
+          longitude: coords[1]
+        };
+      });
+
+      console.log("YANDEX SEARCH QUERY:", searchQuery);
+      console.log("YANDEX SEARCH RESULTS:", items);
+
+      setSuggestions(items);
+      return items;
+    } catch (err) {
+      console.error("Yandex geocode error:", err);
+      return [];
+    }
+  }
+
+  const createPlacemark = (newCoords: [number, number], customAddress?: string) => {
+    const ymaps = (window as any).ymaps;
+    if (!ymaps || !mapRef.current) return;
+
+    const placemark = new ymaps.Placemark(newCoords, {
+      balloonContent: customAddress || address || 'Место доставки'
+    }, {
+      preset: 'islands#redDotIconWithCaption',
+      draggable: true
+    });
+    placemarkRef.current = placemark;
+    mapRef.current.geoObjects.add(placemark);
+
+    // Placemark Drag Event
+    placemark.events.add('dragend', () => {
+      const dragCoords = placemark.geometry.getCoordinates() as [number, number];
+      updatePin(dragCoords, true);
+    });
+  };
+
+  // Update Placemark Position and Geocode Address
+  const updatePin = (newCoords: [number, number], shouldGeocode: boolean, customAddress?: string) => {
+    setCoords(newCoords);
+    setHasSelected(true);
+    
+    const ymaps = (window as any).ymaps;
+    if (!ymaps) return;
+
+    if (mapRef.current) {
+      mapRef.current.setCenter(newCoords, 16);
+    }
+
+    if (!placemarkRef.current && mapRef.current) {
+      createPlacemark(newCoords, customAddress);
+    } else if (placemarkRef.current) {
+      placemarkRef.current.geometry.setCoordinates(newCoords);
+    }
+
+    if (shouldGeocode) {
+      ymaps.geocode(newCoords).then((res: any) => {
+        const firstGeoObject = res.geoObjects.get(0);
+        const geocodedAddress = firstGeoObject ? firstGeoObject.getAddressLine() : '';
+        setAddress(geocodedAddress);
+        onChange({
+          address: geocodedAddress,
+          yandexAddress: geocodedAddress,
+          latitude: newCoords[0],
+          longitude: newCoords[1]
+        });
+      });
+    } else if (customAddress) {
+      setAddress(customAddress);
+      onChange({
+        address: customAddress,
+        yandexAddress: customAddress,
+        latitude: newCoords[0],
+        longitude: newCoords[1]
+      });
+    }
+  };
+
   // Load Yandex Maps script
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY || '';
+    if (!apiKey) {
+      setError('Yandex Maps API key topilmadi');
+      setLoadingMap(false);
+      return;
+    }
+
     const scriptId = 'yandex-maps-api-script';
     
     const initYmaps = () => {
@@ -54,15 +173,15 @@ export default function YandexAddressPicker({
 
       ymaps.ready(() => {
         setLoadingMap(false);
-        if (!mapRef.current || mapInstanceRef.current) return;
+        if (!mapContainerRef.current || mapRef.current) return;
 
         // Initialize map
-        const map = new ymaps.Map(mapRef.current, {
+        const map = new ymaps.Map(mapContainerRef.current, {
           center: coords,
           zoom: 15,
           controls: ['zoomControl']
         });
-        mapInstanceRef.current = map;
+        mapRef.current = map;
 
         // Initialize draggable placemark
         const placemark = new ymaps.Placemark(coords, {
@@ -104,10 +223,10 @@ export default function YandexAddressPicker({
     }
 
     return () => {
-      if (mapInstanceRef.current) {
+      if (mapRef.current) {
         try {
-          mapInstanceRef.current.destroy();
-          mapInstanceRef.current = null;
+          mapRef.current.destroy();
+          mapRef.current = null;
         } catch (e) {
           console.error('Error destroying map:', e);
         }
@@ -115,61 +234,11 @@ export default function YandexAddressPicker({
     };
   }, []);
 
-  // Update Placemark Position and Geocode Address
-  const updatePin = (newCoords: [number, number], shouldGeocode: boolean, customAddress?: string) => {
-    setCoords(newCoords);
-    
-    const ymaps = (window as any).ymaps;
-    if (!ymaps) return;
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setCenter(newCoords, 16);
-    }
-
-    if (!placemarkRef.current && mapInstanceRef.current) {
-      const placemark = new ymaps.Placemark(newCoords, {
-        balloonContent: customAddress || address || 'Место доставки'
-      }, {
-        preset: 'islands#redDotIconWithCaption',
-        draggable: true
-      });
-      placemarkRef.current = placemark;
-      mapInstanceRef.current.geoObjects.add(placemark);
-
-      placemark.events.add('dragend', () => {
-        const dragCoords = placemark.geometry.getCoordinates() as [number, number];
-        updatePin(dragCoords, true);
-      });
-    } else if (placemarkRef.current) {
-      placemarkRef.current.geometry.setCoordinates(newCoords);
-    }
-
-    if (shouldGeocode) {
-      ymaps.geocode(newCoords).then((res: any) => {
-        const firstGeoObject = res.geoObjects.get(0);
-        const geocodedAddress = firstGeoObject ? firstGeoObject.getAddressLine() : '';
-        setAddress(geocodedAddress);
-        onChange({
-          address: geocodedAddress,
-          yandexAddress: geocodedAddress,
-          latitude: newCoords[0],
-          longitude: newCoords[1]
-        });
-      });
-    } else if (customAddress) {
-      setAddress(customAddress);
-      onChange({
-        address: customAddress,
-        yandexAddress: customAddress,
-        latitude: newCoords[0],
-        longitude: newCoords[1]
-      });
-    }
-  };
-
-  // Autocomplete Suggestions Query via ymaps.geocode
   const handleInputChange = (val: string) => {
     setAddress(val);
+    setHasSelected(false);
+    console.log("ADDRESS INPUT CHANGED:", val);
+
     onChange({
       address: val,
       yandexAddress: val,
@@ -183,84 +252,83 @@ export default function YandexAddressPicker({
 
     if (val.trim().length < 3) {
       setSuggestions([]);
-      setShowSuggestions(false);
       return;
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      const ymaps = (window as any).ymaps;
-      if (!ymaps) return;
-
-      const searchQuery = val.toLowerCase().includes('toshkent') || val.toLowerCase().includes('ташкент')
-        ? val
-        : 'Toshkent, ' + val;
-
-      console.log('YANDEX SEARCH QUERY', searchQuery);
-
-      ymaps.geocode(searchQuery, { results: 5 }).then((res: any) => {
-        const geoObjects = res.geoObjects.toArray();
-        const results = geoObjects.map((obj: any) => ({
-          displayName: obj.getAddressLine(),
-          value: obj.getAddressLine(),
-          coords: obj.geometry.getCoordinates()
-        }));
-
-        console.log('YANDEX SUGGESTIONS', results);
-        setSuggestions(results);
-        setShowSuggestions(results.length > 0);
-      }).catch((err: any) => {
-        console.error('Yandex geocode error:', err);
-      });
+      searchAddress(val);
     }, 500);
   };
 
-  // Perform AutoSelect on Blur or Enter
-  const performAutoSelect = (query: string) => {
-    const ymaps = (window as any).ymaps;
-    if (!ymaps || !query.trim() || query.trim().length < 3) return;
-
-    const searchQuery = query.toLowerCase().includes('toshkent') || query.toLowerCase().includes('ташкент')
-      ? query
-      : 'Toshkent, ' + query;
-
-    console.log('YANDEX SEARCH QUERY [AUTOSELECT]', searchQuery);
-
-    ymaps.geocode(searchQuery, { results: 1 }).then((res: any) => {
-      const firstGeoObject = res.geoObjects.get(0);
-      if (firstGeoObject) {
-        const selectedAddress = firstGeoObject.getAddressLine();
-        const firstCoords = firstGeoObject.geometry.getCoordinates() as [number, number];
-        updatePin(firstCoords, false, selectedAddress);
-      }
-    }).catch((err: any) => {
-      console.error('Auto select geocode error:', err);
-    });
-  };
-
-  // Handle Suggestion Item Click
-  const handleSuggestionClick = (item: any) => {
-    setShowSuggestions(false);
+  function selectSuggestion(item: any) {
+    setAddress(item.address);
     setSuggestions([]);
-    if (item.coords) {
-      updatePin(item.coords, false, item.value);
-    }
-  };
+    setHasSelected(true);
 
-  // Handle Key Down (Enter key support)
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const coords: [number, number] = [item.latitude, item.longitude];
+
+    if (mapRef.current) {
+      mapRef.current.setCenter(coords, 16, { duration: 300 });
+    }
+
+    if (placemarkRef.current) {
+      placemarkRef.current.geometry.setCoordinates(coords);
+    } else {
+      createPlacemark(coords, item.address);
+    }
+
+    onChange({
+      address: item.address,
+      yandexAddress: item.address,
+      latitude: item.latitude,
+      longitude: item.longitude
+    });
+  }
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      if (suggestions.length > 0) {
-        handleSuggestionClick(suggestions[0]);
+      if (suggestions && suggestions.length > 0) {
+        selectSuggestion(suggestions[0]);
       } else {
-        performAutoSelect(address);
+        const results = await searchAddress(address);
+        if (results && results.length > 0) {
+          selectSuggestion(results[0]);
+        }
       }
-      setShowSuggestions(false);
     }
   };
 
-  // Detect My Location
+  const handleBlur = () => {
+    setTimeout(async () => {
+      if (!isSelectingSuggestionRef.current) {
+        if (!hasSelected && address.trim().length >= 3) {
+          const results = await searchAddress(address);
+          if (results && results.length > 0) {
+            selectSuggestion(results[0]);
+          }
+        }
+      }
+      setSuggestions([]);
+      isSelectingSuggestionRef.current = false;
+    }, 300);
+  };
+
+  const handleSearchClick = async () => {
+    setError('');
+    if (!address.trim()) {
+      setError('Manzil topilmadi. Masalan: Toshkent, Nurziyo 32 deb yozib ko‘ring.');
+      return;
+    }
+    const results = await searchAddress(address);
+    if (results && results.length > 0) {
+      selectSuggestion(results[0]);
+    } else {
+      setError('Manzil topilmadi. Masalan: Toshkent, Nurziyo 32 deb yozib ko‘ring.');
+    }
+  };
+
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       setError('Геолокация не поддерживается вашим браузером');
@@ -296,23 +364,12 @@ export default function YandexAddressPicker({
             value={address}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
-            onBlur={() => {
-              setTimeout(() => {
-                if (!isSelectingSuggestionRef.current) {
-                  performAutoSelect(address);
-                }
-                setShowSuggestions(false);
-                isSelectingSuggestionRef.current = false;
-              }, 250);
-            }}
+            onBlur={handleBlur}
             placeholder="Введите улицу, дом, ориентир..."
             style={{ width: '100%', boxSizing: 'border-box' }}
           />
 
-          {showSuggestions && suggestions.length > 0 && (
+          {suggestions.length > 0 && (
             <div
               style={{
                 position: 'absolute',
@@ -320,31 +377,32 @@ export default function YandexAddressPicker({
                 left: 0,
                 right: 0,
                 backgroundColor: '#ffffff',
-                border: '1px solid var(--border, #e2e8f0)',
-                borderRadius: 'var(--radius-md, 8px)',
-                boxShadow: 'var(--shadow-lg, 0 10px 15px -3px rgba(0,0,0,0.1))',
-                maxHeight: '240px',
+                color: '#111827',
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                zIndex: 99999,
+                maxHeight: '260px',
                 overflowY: 'auto',
-                zIndex: 9999,
-                marginTop: '5px',
+                marginTop: '4px',
               }}
             >
               {suggestions.map((item, idx) => (
                 <div
                   key={idx}
-                  onClick={() => handleSuggestionClick(item)}
+                  onClick={() => selectSuggestion(item)}
                   onMouseDown={() => {
                     isSelectingSuggestionRef.current = true;
                   }}
                   style={{
-                    padding: '0.6rem 1rem',
-                    fontSize: '0.85rem',
+                    padding: '10px 16px',
+                    fontSize: '0.875rem',
                     cursor: 'pointer',
-                    borderBottom: '1px solid var(--border, #e2e8f0)',
-                    color: 'var(--foreground, #0f172a)'
+                    borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid #f3f4f6',
+                    textAlign: 'left',
                   }}
                 >
-                  📍 {item.displayName}
+                  📍 {item.address}
                 </div>
               ))}
             </div>
@@ -353,14 +411,37 @@ export default function YandexAddressPicker({
 
         <button
           type="button"
+          onClick={handleSearchClick}
+          style={{
+            padding: '0.65rem',
+            borderRadius: '12px',
+            border: '1px solid #10b981',
+            backgroundColor: '#10b981',
+            color: '#ffffff',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '42px',
+            width: '42px',
+            flexShrink: 0
+          }}
+          title="Qidirish"
+        >
+          🔍
+        </button>
+
+        <button
+          type="button"
           onClick={handleDetectLocation}
           disabled={locating}
           style={{
             padding: '0.65rem',
-            borderRadius: 'var(--radius-md, 8px)',
-            border: '1px solid var(--primary-color, #10b981)',
+            borderRadius: '12px',
+            border: '1px solid #3b82f6',
             backgroundColor: 'transparent',
-            color: 'var(--primary-color, #10b981)',
+            color: '#3b82f6',
             cursor: 'pointer',
             fontSize: '1.1rem',
             display: 'flex',
@@ -372,7 +453,7 @@ export default function YandexAddressPicker({
           }}
           title="Определить мое местоположение"
         >
-          {locating ? '⏳' : '📍'}
+          {locating ? '⏳' : '🎯'}
         </button>
       </div>
 
@@ -384,7 +465,7 @@ export default function YandexAddressPicker({
 
       {/* Map Container */}
       <div
-        ref={mapRef}
+        ref={mapContainerRef}
         style={{
           width: '100%',
           height: '220px',
