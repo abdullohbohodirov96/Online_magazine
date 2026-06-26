@@ -169,3 +169,15 @@ DATABASE_URL="ваша_production_db_url" npm run db:seed
 
 Telegram Mini App URL:
 https://online-magazine-phi.vercel.app/miniapp
+
+---
+
+## 📱 Eskiz SMS Setup
+1. Eskiz kabinetdan email/password olinadi.
+2. Vercel ENV ga qo‘yiladi:
+   - `SMS_PROVIDER=eskiz`
+   - `ESKIZ_EMAIL=` (sizning Eskiz email)
+   - `ESKIZ_PASSWORD=` (sizning Eskiz parol)
+   - `ESKIZ_FROM=` (sizning alfanim, masalan `4546`)
+3. Vercel redeploy qilinadi.
+4. Login orqali test SMS yuboriladi.
