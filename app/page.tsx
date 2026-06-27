@@ -1,4 +1,4 @@
-// Trigger redeploy v1.0.2
+// Trigger redeploy v1.0.3
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -112,6 +112,9 @@ export default async function LandingPage() {
       </div>
     );
   } catch (error: any) {
+    if (error.message === 'NEXT_REDIRECT' || (error.digest && error.digest.startsWith('NEXT_REDIRECT'))) {
+      throw error;
+    }
     console.error('Database connection error in root page:', error);
     const errorDetails = error.message || String(error);
     
