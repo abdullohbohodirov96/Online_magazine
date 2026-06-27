@@ -66,6 +66,8 @@ model Store {
   telegramUsername  String?
   facebookUrl       String?
   youtubeUrl        String?
+  phones            String?
+  socialsJson       String?
   branches          Branch[]
   instagramUsername String?
   email             String?

@@ -8,7 +8,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('query') || '';
 
-    if (query.trim().length < 2) {
+    const cleanQuery = query.trim();
+    if (cleanQuery.length < 1) {
       return NextResponse.json({ suggestions: [] });
     }
 
@@ -17,8 +18,8 @@ export async function GET(request: Request) {
         storeId: store.id,
         isActive: true,
         OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
+          { name: { contains: cleanQuery, mode: 'insensitive' } },
+          { description: { contains: cleanQuery, mode: 'insensitive' } },
         ],
       },
       select: {
@@ -28,10 +29,19 @@ export async function GET(request: Request) {
         price: true,
         image: true,
       },
-      take: 8,
+      take: 25,
     });
 
-    return NextResponse.json({ suggestions: products });
+    // Sort: items starting with the query prefix first (case-insensitive), then fallback to substring contains
+    const sorted = [...products].sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(cleanQuery.toLowerCase());
+      const bStarts = b.name.toLowerCase().startsWith(cleanQuery.toLowerCase());
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return NextResponse.json({ suggestions: sorted.slice(0, 10) });
   } catch (error) {
     console.error('Error fetching search suggestions:', error);
     return NextResponse.json({ suggestions: [] });

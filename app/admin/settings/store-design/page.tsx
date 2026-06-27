@@ -23,13 +23,11 @@ export default function StoreDesignPage() {
   const [primaryColor, setPrimaryColor] = useState('#10b981');
   const [backgroundColor, setBackgroundColor] = useState('#f8fafc');
   const [textColor, setTextColor] = useState('#0f172a');
-
-  // Social Links states
-  const [telegramUsername, setTelegramUsername] = useState('');
-  const [instagramUsername, setInstagramUsername] = useState('');
-  const [facebookUrl, setFacebookUrl] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [domain, setDomain] = useState('');
+
+  // Dynamic Phones and Socials states
+  const [phonesList, setPhonesList] = useState<string[]>(['']);
+  const [socialsList, setSocialsList] = useState<Array<{ provider: string; url: string }>>([]);
 
   // Branches states
   const [branches, setBranches] = useState<any[]>([]);
@@ -55,14 +53,36 @@ export default function StoreDesignPage() {
             setPrimaryColor(data.store.primaryColor || '#10b981');
             setBackgroundColor(data.store.backgroundColor || '#f8fafc');
             setTextColor(data.store.textColor || '#0f172a');
-
-            // Social media
-            setTelegramUsername(data.store.telegramUsername || '');
-            setInstagramUsername(data.store.instagramUsername || '');
-            setFacebookUrl(data.store.facebookUrl || '');
-            setYoutubeUrl(data.store.youtubeUrl || '');
+            
             const primaryDomain = data.store.storeDomains?.find((d: any) => d.isPrimary)?.domain || '';
             setDomain(primaryDomain);
+
+            // Parse phones
+            let parsedPhones: string[] = [];
+            if (data.store.phones) {
+              try {
+                parsedPhones = JSON.parse(data.store.phones);
+              } catch (e) {}
+            }
+            if (parsedPhones.length === 0 && data.store.phone) {
+              parsedPhones.push(data.store.phone);
+            }
+            setPhonesList(parsedPhones.length > 0 ? parsedPhones : ['']);
+
+            // Parse socials
+            let parsedSocials: any[] = [];
+            if (data.store.socialsJson) {
+              try {
+                parsedSocials = JSON.parse(data.store.socialsJson);
+              } catch (e) {}
+            }
+            if (parsedSocials.length === 0) {
+              if (data.store.telegramUsername) parsedSocials.push({ provider: 'telegram', url: data.store.telegramUsername });
+              if (data.store.instagramUsername) parsedSocials.push({ provider: 'instagram', url: data.store.instagramUsername });
+              if (data.store.facebookUrl) parsedSocials.push({ provider: 'facebook', url: data.store.facebookUrl });
+              if (data.store.youtubeUrl) parsedSocials.push({ provider: 'youtube', url: data.store.youtubeUrl });
+            }
+            setSocialsList(parsedSocials);
 
             // Branches
             setBranches(data.store.branches || []);
@@ -138,11 +158,40 @@ export default function StoreDesignPage() {
     }
   };
 
+  // Phones handlers
+  const addPhoneField = () => setPhonesList([...phonesList, '']);
+  const removePhoneField = (index: number) => {
+    const updated = [...phonesList];
+    updated.splice(index, 1);
+    setPhonesList(updated);
+  };
+  const handlePhoneChange = (index: number, val: string) => {
+    const updated = [...phonesList];
+    updated[index] = val;
+    setPhonesList(updated);
+  };
+
+  // Socials handlers
+  const addSocialField = () => setSocialsList([...socialsList, { provider: 'telegram', url: '' }]);
+  const removeSocialField = (index: number) => {
+    const updated = [...socialsList];
+    updated.splice(index, 1);
+    setSocialsList(updated);
+  };
+  const handleSocialChange = (index: number, key: string, val: string) => {
+    const updated = [...socialsList];
+    updated[index] = { ...updated[index], [key]: val };
+    setSocialsList(updated);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     setSuccess('');
+
+    const cleanPhones = phonesList.filter(Boolean);
+    const cleanSocials = socialsList.filter(s => s.url.trim());
 
     try {
       const res = await fetch('/api/store', {
@@ -156,10 +205,9 @@ export default function StoreDesignPage() {
           primaryColor,
           backgroundColor,
           textColor,
-          telegramUsername,
-          instagramUsername,
-          facebookUrl,
-          youtubeUrl,
+          phone: cleanPhones[0] || undefined, // fallback first phone
+          phones: JSON.stringify(cleanPhones),
+          socialsJson: JSON.stringify(cleanSocials),
           domain,
         }),
       });
@@ -327,30 +375,83 @@ export default function StoreDesignPage() {
                   </div>
                 </div>
 
-                {/* Social Networks Links */}
+                {/* DYNAMIC PHONES */}
+                <div className="form-group">
+                  <label className="form-label">Do'kon telefon raqamlari</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {phonesList.map((ph, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={ph} 
+                          onChange={(e) => handlePhoneChange(idx, e.target.value)} 
+                          placeholder="+998901234567" 
+                        />
+                        {phonesList.length > 1 && (
+                          <button 
+                            type="button" 
+                            onClick={() => removePhoneField(idx)} 
+                            style={{ padding: '0.5rem', backgroundColor: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger-light)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={addPhoneField} 
+                    style={{ marginTop: '0.5rem', padding: '0.4rem 0.8rem', backgroundColor: 'var(--muted-light)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start', width: 'auto' }}
+                  >
+                    + Telefon qo'shish
+                  </button>
+                </div>
+
+                {/* DYNAMIC SOCIALS */}
                 <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginTop: '1rem', margin: 0 }}>
                   🌐 Социальные сети do'koni
                 </h4>
 
-                <div className="form-group">
-                  <label className="form-label">Telegram Username / Havola</label>
-                  <input type="text" className="form-input" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value)} placeholder="Например: t.me/username yoki @username" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {socialsList.map((soc, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <select 
+                        value={soc.provider} 
+                        onChange={(e) => handleSocialChange(idx, 'provider', e.target.value)} 
+                        style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '0.85rem', outline: 'none', backgroundColor: '#fff' }}
+                      >
+                        <option value="telegram">Telegram</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="youtube">YouTube</option>
+                      </select>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={soc.url} 
+                        onChange={(e) => handleSocialChange(idx, 'url', e.target.value)} 
+                        placeholder="@username yoki https://..." 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeSocialField(idx)} 
+                        style={{ padding: '0.5rem', backgroundColor: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger-light)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Instagram Username / Havola</label>
-                  <input type="text" className="form-input" value={instagramUsername} onChange={(e) => setInstagramUsername(e.target.value)} placeholder="Например: instagram.com/username yoki @username" />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Facebook Havolasi (URL)</label>
-                  <input type="text" className="form-input" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="https://facebook.com/page-name" />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">YouTube Havolasi (URL)</label>
-                  <input type="text" className="form-input" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/c/channel-name" />
-                </div>
+                
+                <button 
+                  type="button" 
+                  onClick={addSocialField} 
+                  style={{ padding: '0.4rem 0.8rem', backgroundColor: 'var(--muted-light)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start', width: 'auto' }}
+                >
+                  + Tarmoq qo'shish
+                </button>
 
                 <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginTop: '1rem', margin: 0 }}>
                   🔗 Доменное имя магазина (Custom Domain / URL)
@@ -422,7 +523,7 @@ export default function StoreDesignPage() {
 
                   <div className="form-group">
                     <label className="form-label" style={{ fontSize: '0.8rem' }}>Адрес филиала</label>
-                    <input type="text" className="form-input" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} placeholder="Например: Чиланзар, кв-л 1, д 2" />
+                    <input type="text" className="form-input" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} placeholder="Например: Чиланzar, кв-л 1, д 2" />
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -485,7 +586,7 @@ export default function StoreDesignPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.9rem', color: '#000' }}>
                     {logoUrl ? (
                       <img src={logoUrl} alt="Logo" style={{ height: '20px', borderRadius: '4px' }} />
-                    ) : '🍎'}
+                    ) : null}
                     {name || 'Название магазина'}
                   </span>
                   <div style={{ display: 'flex', gap: '10px', fontSize: '0.75rem' }}>

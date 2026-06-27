@@ -61,6 +61,8 @@ export async function POST(request: Request) {
       facebookUrl,
       youtubeUrl,
       domain,
+      phones,
+      socialsJson,
     } = data;
 
     if (!name || !slug) {
@@ -117,6 +119,8 @@ export async function POST(request: Request) {
           instagramUsername: instagramUsername || null,
           facebookUrl: facebookUrl || null,
           youtubeUrl: youtubeUrl || null,
+          phones: phones || null,
+          socialsJson: socialsJson || null,
         },
       });
 
@@ -199,7 +203,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { id, isActive, name, primaryColor, description, ownerPhone } = await request.json();
+    const { id, isActive, name, primaryColor, description, ownerPhone, phones, socialsJson } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID магазина обязателен' }, { status: 400 });
@@ -210,6 +214,8 @@ export async function PUT(request: Request) {
     if (name !== undefined) payload.name = name;
     if (primaryColor !== undefined) payload.primaryColor = primaryColor;
     if (description !== undefined) payload.description = description;
+    if (phones !== undefined) payload.phones = phones;
+    if (socialsJson !== undefined) payload.socialsJson = socialsJson;
 
     // Check if new owner needs to be linked
     if (ownerPhone) {

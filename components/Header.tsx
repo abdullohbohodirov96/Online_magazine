@@ -44,7 +44,7 @@ function SearchInput() {
 
   // Fetch suggestions with a simple debounce check
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
+    if (searchQuery.trim().length < 1) {
       setSuggestions([]);
       return;
     }
@@ -56,7 +56,7 @@ function SearchInput() {
           setSuggestions(data.suggestions || []);
         })
         .catch((err) => console.error('Error loading search suggestions:', err));
-    }, 250);
+    }, 100);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -315,11 +315,21 @@ export default function Header() {
           )}
 
           <div className='header-actions' style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {store?.phone && (
-              <a href={`tel:${store.phone}`} className='phone-link' style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 600 }}>
-                📞 {store.phone}
-              </a>
-            )}
+            {(() => {
+              let storePhone = store?.phone || '';
+              if (store?.phones) {
+                try {
+                  const arr = JSON.parse(store.phones);
+                  if (arr && arr.length > 0) storePhone = arr[0];
+                } catch (e) {}
+              }
+              if (!storePhone) return null;
+              return (
+                <a href={`tel:${storePhone}`} className='phone-link' style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 600 }}>
+                  📞 {storePhone}
+                </a>
+              );
+            })()}
             
             {/* Dark Mode Toggle */}
             <button 

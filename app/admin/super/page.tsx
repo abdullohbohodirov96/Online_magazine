@@ -12,10 +12,12 @@ interface Store {
   description: string | null;
   logoUrl: string | null;
   phone: string | null;
+  phones: string | null;
   telegramUsername: string | null;
   instagramUsername: string | null;
   facebookUrl: string | null;
   youtubeUrl: string | null;
+  socialsJson: string | null;
   createdAt: string;
   storeDomains?: Array<{ domain: string; isPrimary: boolean }>;
   storeUsers: Array<{
@@ -39,12 +41,13 @@ export default function SuperAdminDashboard() {
   const [description, setDescription] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
-  const [phone, setPhone] = useState('');
-  const [telegramUsername, setTelegramUsername] = useState('');
-  const [instagramUsername, setInstagramUsername] = useState('');
-  const [facebookUrl, setFacebookUrl] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [domain, setDomain] = useState('');
+
+  // Dynamic Phones state
+  const [phonesList, setPhonesList] = useState<string[]>(['']);
+
+  // Dynamic Social Links state
+  const [socialsList, setSocialsList] = useState<Array<{ provider: string; url: string }>>([]);
   
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -95,10 +98,39 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  // Phones management
+  const addPhoneField = () => setPhonesList([...phonesList, '']);
+  const removePhoneField = (index: number) => {
+    const updated = [...phonesList];
+    updated.splice(index, 1);
+    setPhonesList(updated);
+  };
+  const handlePhoneChange = (index: number, val: string) => {
+    const updated = [...phonesList];
+    updated[index] = val;
+    setPhonesList(updated);
+  };
+
+  // Socials management
+  const addSocialField = () => setSocialsList([...socialsList, { provider: 'telegram', url: '' }]);
+  const removeSocialField = (index: number) => {
+    const updated = [...socialsList];
+    updated.splice(index, 1);
+    setSocialsList(updated);
+  };
+  const handleSocialChange = (index: number, key: string, val: string) => {
+    const updated = [...socialsList];
+    updated[index] = { ...updated[index], [key]: val };
+    setSocialsList(updated);
+  };
+
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
+
+    const cleanPhones = phonesList.filter(Boolean);
+    const cleanSocials = socialsList.filter(s => s.url.trim());
 
     try {
       const res = await fetch('/api/admin/super/stores', {
@@ -111,11 +143,9 @@ export default function SuperAdminDashboard() {
           description,
           ownerPhone: ownerPhone.trim() || undefined,
           logoUrl: logoUrl || undefined,
-          phone: phone || undefined,
-          telegramUsername: telegramUsername || undefined,
-          instagramUsername: instagramUsername || undefined,
-          facebookUrl: facebookUrl || undefined,
-          youtubeUrl: youtubeUrl || undefined,
+          phone: cleanPhones[0] || undefined, // first phone fallback
+          phones: JSON.stringify(cleanPhones),
+          socialsJson: JSON.stringify(cleanSocials),
           domain: domain || undefined,
         }),
       });
@@ -129,11 +159,8 @@ export default function SuperAdminDashboard() {
         setDescription('');
         setOwnerPhone('');
         setLogoUrl('');
-        setPhone('');
-        setTelegramUsername('');
-        setInstagramUsername('');
-        setFacebookUrl('');
-        setYoutubeUrl('');
+        setPhonesList(['']);
+        setSocialsList([]);
         setDomain('');
         fetchStores();
       } else {
@@ -174,7 +201,7 @@ export default function SuperAdminDashboard() {
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <Link href="/" style={{ padding: '0.75rem 1.5rem', backgroundColor: '#e2e8f0', color: '#334155', borderRadius: '0.75rem', fontWeight: 700, textDecoration: 'none' }}>
-              Bosh sahifaga qaytish
+              Bosh sahibaga qaytish
             </Link>
             <button 
               onClick={() => setShowModal(true)}
@@ -212,6 +239,17 @@ export default function SuperAdminDashboard() {
               const ownerRelation = store.storeUsers.find((su) => su.role === 'STORE_OWNER');
               const owner = ownerRelation?.user;
               const primaryDomain = store.storeDomains?.find((d) => d.isPrimary)?.domain;
+
+              // Parse phones
+              let parsedPhones: string[] = [];
+              if (store.phones) {
+                try {
+                  parsedPhones = JSON.parse(store.phones);
+                } catch (e) {}
+              }
+              if (parsedPhones.length === 0 && store.phone) {
+                parsedPhones.push(store.phone);
+              }
 
               return (
                 <div key={store.id} style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
@@ -263,10 +301,12 @@ export default function SuperAdminDashboard() {
                         <span style={{ color: '#64748b' }}>Egasining telefoni:</span>
                         <strong>{owner?.phone || 'Kiritilmagan'}</strong>
                       </div>
-                      {store.phone && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                          <span style={{ color: '#64748b' }}>Do'kon telefoni:</span>
-                          <strong>{store.phone}</strong>
+                      {parsedPhones.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#64748b' }}>Do'kon telefonlari:</span>
+                          <strong style={{ textAlign: 'right' }}>
+                            {parsedPhones.map((p, i) => <div key={i}>{p}</div>)}
+                          </strong>
                         </div>
                       )}
                       {primaryDomain && (
@@ -375,45 +415,89 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon telefon raqami</label>
-                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="+998712000000" />
+                {/* DYNAMIC PHONES SECTION */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon telefon raqamlari</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {phonesList.map((ph, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input 
+                          type="text" 
+                          value={ph} 
+                          onChange={(e) => handlePhoneChange(idx, e.target.value)} 
+                          style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} 
+                          placeholder="+998712000000" 
+                        />
+                        {phonesList.length > 1 && (
+                          <button 
+                            type="button" 
+                            onClick={() => removePhoneField(idx)} 
+                            style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '0.375rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
+                  <button 
+                    type="button" 
+                    onClick={addPhoneField} 
+                    style={{ marginTop: '0.5rem', padding: '0.4rem 0.8rem', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '0.375rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
+                  >
+                    + Telefon qo'shish
+                  </button>
+                </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Shaxsiy Domen (URL)</label>
                     <input type="text" value={domain} onChange={(e) => setDomain(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="bozor-market.uz" />
                   </div>
                 </div>
 
-                {/* Social links section */}
+                {/* DYNAMIC SOCIALS SECTION */}
                 <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem', marginTop: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', margin: '0 0 1rem 0' }}>🌐 Ijtimoiy tarmoq havolalari</h4>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Telegram Link / Username</label>
-                      <input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="@username yoki t.me/link" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Instagram Link / Username</label>
-                      <input type="text" value={instagramUsername} onChange={(e) => setInstagramUsername(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="@username yoki instagram.com/link" />
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {socialsList.map((soc, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <select 
+                          value={soc.provider} 
+                          onChange={(e) => handleSocialChange(idx, 'provider', e.target.value)} 
+                          style={{ padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', backgroundColor: '#fff' }}
+                        >
+                          <option value="telegram">Telegram</option>
+                          <option value="instagram">Instagram</option>
+                          <option value="facebook">Facebook</option>
+                          <option value="youtube">YouTube</option>
+                        </select>
+                        <input 
+                          type="text" 
+                          value={soc.url} 
+                          onChange={(e) => handleSocialChange(idx, 'url', e.target.value)} 
+                          style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} 
+                          placeholder="@username yoki https://..." 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => removeSocialField(idx)} 
+                          style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '0.375rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
                   </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Facebook Havolasi (URL)</label>
-                      <input type="text" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="https://facebook.com/..." />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>YouTube Havolasi (URL)</label>
-                      <input type="text" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="https://youtube.com/..." />
-                    </div>
-                  </div>
+                  
+                  <button 
+                    type="button" 
+                    onClick={addSocialField} 
+                    style={{ marginTop: '0.5rem', padding: '0.4rem 0.8rem', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '0.375rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
+                  >
+                    + Tarmoq qo'shish
+                  </button>
                 </div>
 
                 <div>

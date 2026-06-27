@@ -26,6 +26,37 @@ export default function Footer() {
     return val.startsWith('http') ? val : `https://instagram.com/${val.replace('@', '')}`;
   };
 
+  // Parse custom socials list
+  let socials: Array<{ provider: string; url: string }> = [];
+  if (store?.socialsJson) {
+    try {
+      socials = JSON.parse(store.socialsJson);
+    } catch (e) {
+      socials = [];
+    }
+  }
+
+  // Fallback to legacy columns if socials list is empty
+  if (socials.length === 0) {
+    if (store?.telegramUsername) socials.push({ provider: 'telegram', url: store.telegramUsername });
+    if (store?.instagramUsername) socials.push({ provider: 'instagram', url: store.instagramUsername });
+    if (store?.facebookUrl) socials.push({ provider: 'facebook', url: store.facebookUrl });
+    if (store?.youtubeUrl) socials.push({ provider: 'youtube', url: store.youtubeUrl });
+  }
+
+  // Parse phone numbers
+  let phoneNumbers: string[] = [];
+  if (store?.phones) {
+    try {
+      phoneNumbers = JSON.parse(store.phones);
+    } catch (e) {
+      phoneNumbers = [];
+    }
+  }
+  if (phoneNumbers.length === 0 && store?.phone) {
+    phoneNumbers.push(store.phone);
+  }
+
   return (
     <footer className='footer'>
       <div className='container footer-inner'>
@@ -38,132 +69,47 @@ export default function Footer() {
           </p>
 
           {/* Social Links Row */}
-          {(store?.telegramUsername || store?.instagramUsername || store?.facebookUrl || store?.youtubeUrl) && (
+          {socials.length > 0 && (
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-              {store.telegramUsername && (
-                <a
-                  href={getTelegramLink(store.telegramUsername)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--muted-light)',
-                    color: 'var(--primary-color)',
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    border: '1px solid var(--border)',
-                  }}
-                  title="Telegram"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-                    e.currentTarget.style.color = '#fff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--muted-light)';
-                    e.currentTarget.style.color = 'var(--primary-color)';
-                  }}
-                >
-                  ✈️
-                </a>
-              )}
-              {store.instagramUsername && (
-                <a
-                  href={getInstagramLink(store.instagramUsername)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--muted-light)',
-                    color: 'var(--primary-color)',
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    border: '1px solid var(--border)',
-                  }}
-                  title="Instagram"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-                    e.currentTarget.style.color = '#fff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--muted-light)';
-                    e.currentTarget.style.color = 'var(--primary-color)';
-                  }}
-                >
-                  📸
-                </a>
-              )}
-              {store.facebookUrl && (
-                <a
-                  href={store.facebookUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--muted-light)',
-                    color: 'var(--primary-color)',
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    border: '1px solid var(--border)',
-                  }}
-                  title="Facebook"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-                    e.currentTarget.style.color = '#fff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--muted-light)';
-                    e.currentTarget.style.color = 'var(--primary-color)';
-                  }}
-                >
-                  👥
-                </a>
-              )}
-              {store.youtubeUrl && (
-                <a
-                  href={store.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--muted-light)',
-                    color: 'var(--primary-color)',
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    border: '1px solid var(--border)',
-                  }}
-                  title="YouTube"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-                    e.currentTarget.style.color = '#fff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--muted-light)';
-                    e.currentTarget.style.color = 'var(--primary-color)';
-                  }}
-                >
-                  📺
-                </a>
-              )}
+              {socials.map((soc, idx) => {
+                const link = soc.provider === 'telegram' ? getTelegramLink(soc.url) :
+                             soc.provider === 'instagram' ? getInstagramLink(soc.url) :
+                             soc.url;
+                const emoji = soc.provider === 'telegram' ? '✈️' :
+                              soc.provider === 'instagram' ? '📸' :
+                              soc.provider === 'facebook' ? '👥' : '📺';
+                return (
+                  <a
+                    key={idx}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--muted-light)',
+                      color: 'var(--primary-color)',
+                      fontSize: '1.1rem',
+                      transition: 'all 0.2s',
+                      border: '1px solid var(--border)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--primary-color)';
+                      e.currentTarget.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--muted-light)';
+                      e.currentTarget.style.color = 'var(--primary-color)';
+                    }}
+                  >
+                    {emoji}
+                  </a>
+                );
+              })}
             </div>
           )}
         </div>
@@ -179,9 +125,9 @@ export default function Footer() {
           <h4>{t('contacts')}</h4>
           <ul className='footer-links'>
             <li>📍 {store?.address || 'Toshkent, O\'zbekiston'}</li>
-            {store?.phone && (
-              <li>📞 {store.phone}</li>
-            )}
+            {phoneNumbers.map((ph, idx) => (
+              <li key={idx}>📞 {ph}</li>
+            ))}
             {store?.supportPhone && (
               <li>📞 {store.supportPhone} (Support)</li>
             )}

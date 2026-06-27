@@ -43,6 +43,8 @@ export async function PUT(request: Request) {
       facebookUrl,
       youtubeUrl,
       domain,
+      phones,
+      socialsJson,
     } = data;
 
     const updatedStore = await prisma.$transaction(async (tx) => {
@@ -60,6 +62,8 @@ export async function PUT(request: Request) {
           instagramUsername: instagramUsername !== undefined ? instagramUsername : undefined,
           facebookUrl: facebookUrl !== undefined ? facebookUrl : undefined,
           youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : undefined,
+          phones: phones !== undefined ? phones : undefined,
+          socialsJson: socialsJson !== undefined ? socialsJson : undefined,
         },
       });
 
