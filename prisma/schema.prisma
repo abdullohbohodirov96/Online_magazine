@@ -68,6 +68,7 @@ model Store {
   youtubeUrl        String?
   phones            String?
   socialsJson       String?
+  visits            Int      @default(0)
   branches          Branch[]
   instagramUsername String?
   email             String?

@@ -273,3 +273,27 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Ошибка сервера при обновлении магазина' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  if (!(await verifySuperAdmin())) {
+    return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID магазина обязателен' }, { status: 400 });
+    }
+
+    await prisma.store.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting store:', error);
+    return NextResponse.json({ error: 'Ошибка сервера при удалении магазина' }, { status: 500 });
+  }
+}

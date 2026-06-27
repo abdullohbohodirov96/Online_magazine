@@ -6,6 +6,17 @@ import { prisma } from '@/lib/db';
 export async function GET(request: Request) {
   try {
     const resolvedStore = await resolveStoreFromRequest(request);
+    
+    // Auto-increment visits
+    try {
+      await prisma.store.update({
+        where: { id: resolvedStore.id },
+        data: { visits: { increment: 1 } },
+      });
+    } catch (e) {
+      console.error('Failed to increment store visits:', e);
+    }
+
     const store = await prisma.store.findUnique({
       where: { id: resolvedStore.id },
       include: {

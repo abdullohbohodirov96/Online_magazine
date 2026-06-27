@@ -18,6 +18,7 @@ interface Store {
   facebookUrl: string | null;
   youtubeUrl: string | null;
   socialsJson: string | null;
+  visits: number;
   createdAt: string;
   storeDomains?: Array<{ domain: string; isPrimary: boolean }>;
   storeUsers: Array<{
@@ -189,6 +190,42 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleDeleteStore = async (id: string, storeName: string) => {
+    if (!confirm(`Haqiqatan ham "${storeName}" do'konini butunlay o'chirib tashlamoqchimisiz? Ushbu do'kon va uning barcha mahsulotlari qayta tiklanmaydigan qilib o'chiriladi!`)) {
+      return;
+    }
+    setError('');
+
+    try {
+      const res = await fetch(`/api/admin/super/stores?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setStores(stores.filter((s) => s.id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Do\'konni o\'chirishda xatolik yuz berdi');
+      }
+    } catch (err) {
+      setError('Server bilan bog\'lanishda xatolik');
+    }
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const created = new Date(dateString).getTime();
+    const now = new Date().getTime();
+    const diffMs = now - created;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHrs / 24);
+
+    if (diffMin < 1) return 'hozirgina';
+    if (diffMin < 60) return `${diffMin} daqiqa oldin`;
+    if (diffHrs < 24) return `${diffHrs} soat oldin`;
+    return `${diffDays} kun oldin`;
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '2rem 1rem', fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -201,7 +238,7 @@ export default function SuperAdminDashboard() {
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <Link href="/" style={{ padding: '0.75rem 1.5rem', backgroundColor: '#e2e8f0', color: '#334155', borderRadius: '0.75rem', fontWeight: 700, textDecoration: 'none' }}>
-              Bosh sahibaga qaytish
+              Bosh sahifaga qaytish
             </Link>
             <button 
               onClick={() => setShowModal(true)}
@@ -315,15 +352,19 @@ export default function SuperAdminDashboard() {
                           <strong>{primaryDomain}</strong>
                         </div>
                       )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#0284c7' }}>
+                        <span>📊 Statistika (Tashriflar):</span>
+                        <strong>{store.visits || 0} ta kirish</strong>
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Yaratilgan sana:</span>
-                        <strong>{new Date(store.createdAt).toLocaleDateString('uz-UZ')}</strong>
+                        <span style={{ color: '#64748b' }}>Ochilgan vaqti:</span>
+                        <strong>{formatRelativeTime(store.createdAt)}</strong>
                       </div>
                     </div>
                   </div>
 
                   <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
-                    <Link href={`/store/${store.slug}`} target="_blank" style={{ flex: 1, textAlign: 'center', padding: '0.6rem 0', backgroundColor: '#f1f5f9', color: '#334155', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'none' }}>
+                    <Link href={`/store/${store.slug}`} target="_blank" style={{ flex: 1.2, textAlign: 'center', padding: '0.6rem 0', backgroundColor: '#f1f5f9', color: '#334155', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'none' }}>
                       Do'konga kirish
                     </Link>
                     <button 
@@ -345,6 +386,13 @@ export default function SuperAdminDashboard() {
                       style={{ flex: 1, padding: '0.6rem 0', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
                     >
                       Tahrirlash
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteStore(store.id, store.name)}
+                      style={{ flex: 0.8, padding: '0.6rem 0', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', color: '#ef4444', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                      title="Do'konni o'chirish"
+                    >
+                      🗑️
                     </button>
                   </div>
                 </div>

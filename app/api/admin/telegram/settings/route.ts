@@ -88,6 +88,23 @@ export async function PUT(request: Request) {
       });
     }
 
+    // Automatically set Telegram webhook in background if botToken and miniAppUrl are configured
+    if (payload.botToken && payload.miniAppUrl) {
+      try {
+        const webhookUrl = `${payload.miniAppUrl.replace(/\/$/, '')}/api/telegram/webhook/${store.slug}`;
+        const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+        let tgApiUrl = `https://api.telegram.org/bot${payload.botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+        if (secretToken) {
+          tgApiUrl += `&secret_token=${encodeURIComponent(secretToken)}`;
+        }
+        const tgRes = await fetch(tgApiUrl);
+        const tgData = await tgRes.json();
+        console.log('Auto webhook set result:', tgData);
+      } catch (err) {
+        console.error('Failed to auto-set telegram webhook in settings put:', err);
+      }
+    }
+
     return NextResponse.json({ success: true, settings });
   } catch (error) {
     console.error('Error updating Telegram settings:', error);

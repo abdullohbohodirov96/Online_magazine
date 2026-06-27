@@ -24,7 +24,7 @@ function AdminPageContent() {
 
   useEffect(() => {
     const tab = searchParams.get('tab') || 'orders';
-    if (['orders', 'products', 'integration'].includes(tab)) {
+    if (['orders', 'products', 'integration', 'admins'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -112,12 +112,27 @@ function AdminPageContent() {
             >
               🤖 Настройки Telegram
             </button>
+            <button
+              className={`admin-sidebar-link ${activeTab === 'admins' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('admins'); router.push('/admin?tab=admins'); }}
+              style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}
+            >
+              👥 Adminlar
+            </button>
+            <button
+              className="admin-sidebar-link"
+              onClick={() => router.push('/admin/settings/store-design')}
+              style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}
+            >
+              🎨 Brending dizayni
+            </button>
           </aside>
 
           <section className="admin-main">
             {activeTab === 'orders' && <OrdersTab />}
             {activeTab === 'products' && <ProductsTab />}
             {activeTab === 'integration' && <IntegrationTab />}
+            {activeTab === 'admins' && <StoreUsersTab />}
           </section>
         </div>
       </main>
@@ -1257,6 +1272,236 @@ function IntegrationTab() {
               <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.25rem' }}>
                 {log.message}
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== TAB 4: STORE ADMINS ====================
+function StoreUsersTab() {
+  const [storeUsers, setStoreUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // New admin form
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [adminName, setAdminName] = useState('');
+  const [adminPhone, setAdminPhone] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminRole, setAdminRole] = useState('STORE_ADMIN');
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchStoreUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/store-users');
+      if (res.ok) {
+        const data = await res.json();
+        setStoreUsers(data.storeUsers || []);
+      }
+    } catch (e) {
+      setError('Adminlar ro\'yxatini yuklab bo\'lmadi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStoreUsers();
+  }, []);
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await fetch('/api/admin/store-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: adminName.trim(),
+          phone: adminPhone.trim(),
+          password: adminPassword,
+          role: adminRole,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSuccess(`Admin "${adminName}" muvaffaqiyatli qo'shildi! Login: ${adminPhone}, Parol: ${adminPassword}`);
+        setShowAddForm(false);
+        setAdminName('');
+        setAdminPhone('');
+        setAdminPassword('');
+        setAdminRole('STORE_ADMIN');
+        fetchStoreUsers();
+      } else {
+        setError(data.error || 'Admin qo\'shishda xatolik');
+      }
+    } catch (err) {
+      setError('Server bilan bog\'lanishda xatolik');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: string, userName: string) => {
+    if (!confirm(`"${userName}" adminini do'kondan olib tashlamoqchimisiz?`)) return;
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await fetch(`/api/admin/store-users?userId=${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setSuccess(`"${userName}" muvaffaqiyatli olib tashlandi`);
+        fetchStoreUsers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Adminni olib tashlashda xatolik');
+      }
+    } catch (err) {
+      setError('Server bilan bog\'lanishda xatolik');
+    }
+  };
+
+  if (loading) return <div>Adminlar yuklanmoqda...</div>;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h4 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>👥 Do'kon Adminlari</h4>
+        {!showAddForm && (
+          <button className="btn btn-primary" onClick={() => setShowAddForm(true)} style={{ width: 'auto' }}>
+            + Yangi admin qo'shish
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontWeight: 600 }}>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div style={{ color: 'var(--primary-hover)', backgroundColor: 'var(--primary-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontWeight: 600 }}>
+          ✅ {success}
+        </div>
+      )}
+
+      {/* Add Admin Form */}
+      {showAddForm && (
+        <div style={{ backgroundColor: 'var(--background)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', marginBottom: '2rem' }}>
+          <h5 style={{ fontWeight: 700, marginBottom: '1.25rem', margin: 0 }}>Yangi admin yaratish</h5>
+          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
+            Admin uchun ism, telefon raqami va parol kiriting. Admin bu ma'lumotlar bilan tizimga kiradi.
+          </p>
+          
+          <form onSubmit={handleAddAdmin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Admin ismi *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  required
+                  placeholder="Masalan: Alisher"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Telefon raqami (Login) *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminPhone}
+                  onChange={(e) => setAdminPhone(e.target.value)}
+                  required
+                  placeholder="+998901234567"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Parol *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  required
+                  placeholder="Kamida 6 belgi"
+                  minLength={6}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Roli</label>
+                <select
+                  className="form-input"
+                  value={adminRole}
+                  onChange={(e) => setAdminRole(e.target.value)}
+                >
+                  <option value="STORE_ADMIN">Admin (cheklangan)</option>
+                  <option value="STORE_OWNER">Egasi (to'liq huquq)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0.6rem 2rem' }} disabled={submitting}>
+                {submitting ? 'Yaratilmoqda...' : 'Admin yaratish'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)} style={{ width: 'auto' }}>
+                Bekor qilish
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Existing admins list */}
+      {storeUsers.length === 0 ? (
+        <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Bu do'konda hali adminlar yo'q.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {storeUsers.map((su) => (
+            <div key={su.user.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--card-bg)' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{su.user.name || 'Nomi kiritilmagan'}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.15rem' }}>
+                  📞 {su.user.phone} &nbsp;|&nbsp; 
+                  <span style={{
+                    backgroundColor: su.role === 'STORE_OWNER' ? '#dcfce7' : '#dbeafe',
+                    color: su.role === 'STORE_OWNER' ? '#15803d' : '#1d4ed8',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}>
+                    {su.role === 'STORE_OWNER' ? 'Egasi' : 'Admin'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => handleRemoveAdmin(su.user.id, su.user.name || su.user.phone)}
+                className="btn btn-danger"
+                style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                Olib tashlash
+              </button>
             </div>
           ))}
         </div>
