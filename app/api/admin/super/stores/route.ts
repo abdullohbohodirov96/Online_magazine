@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { hashPassword } from '@/lib/auth/password';
 
 async function verifySuperAdmin() {
   const user = await getCurrentUser();
@@ -65,16 +66,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Магазин с таким slug уже существует' }, { status: 400 });
     }
 
-    // Resolve owner if phone provided
+    // Resolve or automatically create owner if phone provided
     let ownerId: string | null = null;
     if (ownerPhone) {
       const ownerUser = await prisma.user.findUnique({
         where: { phone: ownerPhone },
       });
       if (!ownerUser) {
-        return NextResponse.json({ error: 'Пользователь с таким телефоном не найден. Сначала зарегистрируйте его.' }, { status: 400 });
+        // Automatically create the owner with default password
+        const defaultHash = await hashPassword('admin123456');
+        const newUser = await prisma.user.create({
+          data: {
+            phone: ownerPhone,
+            role: 'STORE_OWNER',
+            passwordHash: defaultHash,
+            name: 'Owner ' + name,
+          }
+        });
+        ownerId = newUser.id;
+      } else {
+        ownerId = ownerUser.id;
       }
-      ownerId = ownerUser.id;
     }
 
     const store = await prisma.$transaction(async (tx) => {
@@ -159,11 +171,21 @@ export async function PUT(request: Request) {
 
     // Check if new owner needs to be linked
     if (ownerPhone) {
-      const ownerUser = await prisma.user.findUnique({
+      let ownerUser = await prisma.user.findUnique({
         where: { phone: ownerPhone },
       });
+      
       if (!ownerUser) {
-        return NextResponse.json({ error: 'Пользователь с таким телефоном не найден.' }, { status: 400 });
+        // Automatically create the owner with default password
+        const defaultHash = await hashPassword('admin123456');
+        ownerUser = await prisma.user.create({
+          data: {
+            phone: ownerPhone,
+            role: 'STORE_OWNER',
+            passwordHash: defaultHash,
+            name: 'Owner ' + (name || 'Store'),
+          }
+        });
       }
       
       // Upsert STORE_OWNER connection

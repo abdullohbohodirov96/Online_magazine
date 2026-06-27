@@ -29,6 +29,7 @@ export default function StoreDesignPage() {
   const [instagramUsername, setInstagramUsername] = useState('');
   const [facebookUrl, setFacebookUrl] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [domain, setDomain] = useState('');
 
   // Branches states
   const [branches, setBranches] = useState<any[]>([]);
@@ -60,6 +61,8 @@ export default function StoreDesignPage() {
             setInstagramUsername(data.store.instagramUsername || '');
             setFacebookUrl(data.store.facebookUrl || '');
             setYoutubeUrl(data.store.youtubeUrl || '');
+            const primaryDomain = data.store.storeDomains?.find((d: any) => d.isPrimary)?.domain || '';
+            setDomain(primaryDomain);
 
             // Branches
             setBranches(data.store.branches || []);
@@ -157,6 +160,7 @@ export default function StoreDesignPage() {
           instagramUsername,
           facebookUrl,
           youtubeUrl,
+          domain,
         }),
       });
 
@@ -346,6 +350,18 @@ export default function StoreDesignPage() {
                 <div className="form-group">
                   <label className="form-label">YouTube Havolasi (URL)</label>
                   <input type="text" className="form-input" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/c/channel-name" />
+                </div>
+
+                <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginTop: '1rem', margin: 0 }}>
+                  🔗 Доменное имя магазина (Custom Domain / URL)
+                </h4>
+
+                <div className="form-group">
+                  <label className="form-label">Домен / URL магазина</label>
+                  <input type="text" className="form-input" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="Например: my-grocery.uz yoki bozor-market.uz" />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                    Служит для автоматического перехода на этот магазин при входе по данному домену.
+                  </p>
                 </div>
 
                 <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
