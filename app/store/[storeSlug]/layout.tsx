@@ -13,8 +13,9 @@ export default async function StoreLayout({
   let store = null;
   try {
     store = await resolveStore(storeSlug);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database connection error in StoreLayout:', error);
+    const errorDetails = error.message || String(error);
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
         <div style={{ maxWidth: '650px', width: '100%', backgroundColor: '#1e293b', padding: '3rem', borderRadius: '1.5rem', border: '1px solid #334155', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
@@ -22,6 +23,12 @@ export default async function StoreLayout({
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1rem', color: '#f43f5e', textAlign: 'center' }}>
             Neon Bazaga Ulanish Xatoligi (Prisma Setup Required)
           </h1>
+          
+          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', padding: '1rem 1.25rem', borderRadius: '0.75rem', fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '1.5rem', wordBreak: 'break-all' }}>
+            <strong>Xatolik tafsiloti (Error message):</strong><br />
+            {errorDetails}
+          </div>
+
           <p style={{ color: '#94a3b8', lineHeight: 1.6, marginBottom: '1.5rem' }}>
             Production ma'lumotlar bazasida (Neon) jadvallar yaratilmagan yoki migratsiya bajarilmagan. Quyidagi qadamlarni o'z terminalingizda bajarib do'konni ishga tushiring:
           </p>

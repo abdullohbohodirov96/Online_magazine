@@ -1,4 +1,4 @@
-// Trigger redeploy v1.0.1
+// Trigger redeploy v1.0.2
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -113,6 +113,7 @@ export default async function LandingPage() {
     );
   } catch (error: any) {
     console.error('Database connection error in root page:', error);
+    const errorDetails = error.message || String(error);
     
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
@@ -121,6 +122,12 @@ export default async function LandingPage() {
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1rem', color: '#f43f5e', textAlign: 'center' }}>
             Neon Bazaga Ulanish Xatoligi (Prisma Setup Required)
           </h1>
+          
+          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', padding: '1rem 1.25rem', borderRadius: '0.75rem', fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '1.5rem', wordBreak: 'break-all' }}>
+            <strong>Xatolik tafsiloti (Error message):</strong><br />
+            {errorDetails}
+          </div>
+
           <p style={{ color: '#94a3b8', lineHeight: 1.6, marginBottom: '1.5rem' }}>
             Production ma'lumotlar bazasida (Neon) jadvallar yaratilmagan yoki migratsiya bajarilmagan. Quyidagi qadamlarni o'z terminalingizda bajarib tizimni ishga tushiring:
           </p>
