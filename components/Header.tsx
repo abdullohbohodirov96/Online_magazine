@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
+import { useLanguageTheme } from '@/context/LanguageThemeContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginModal from './LoginModal';
 import { useTelegramWebApp } from '@/lib/telegram/useTelegramWebApp';
@@ -19,14 +20,50 @@ function getStoreSlug() {
 function SearchInput() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguageTheme();
+  
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSearchQuery(searchParams.get('search') || '');
   }, [searchParams]);
 
+  // Click outside listener to hide suggestions
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch suggestions with a simple debounce check
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      fetch(`/api/products/suggestions?query=${encodeURIComponent(searchQuery.trim())}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setSuggestions(data.suggestions || []);
+        })
+        .catch((err) => console.error('Error loading search suggestions:', err));
+    }, 250);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowSuggestions(false);
     const slug = getStoreSlug();
     const basePath = slug ? `/store/${slug}` : '';
 
@@ -37,17 +74,89 @@ function SearchInput() {
     }
   };
 
+  const handleSuggestionClick = (name: string) => {
+    setSearchQuery(name);
+    setShowSuggestions(false);
+    const slug = getStoreSlug();
+    const basePath = slug ? `/store/${slug}` : '';
+    router.push(`${basePath || '/'}?search=${encodeURIComponent(name)}`);
+  };
+
   return (
-    <form onSubmit={handleSearchSubmit} className='search-bar'>
-      <input
-        type='text'
-        className='search-input'
-        placeholder='Поиск свежих продуктов...'
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
-      <span className='search-icon'>🔍</span>
-    </form>
+    <div className='search-bar' ref={containerRef} style={{ position: 'relative' }}>
+      <form onSubmit={handleSearchSubmit}>
+        <input
+          type='text'
+          className='search-input'
+          placeholder={t('searchPlaceholder')}
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+        />
+        <span className='search-icon'>🔍</span>
+      </form>
+
+      {/* Autocomplete Suggestions Box */}
+      {showSuggestions && suggestions.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            backgroundColor: 'var(--card-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-lg)',
+            zIndex: 1000,
+            maxHeight: '320px',
+            overflowY: 'auto',
+            marginTop: '0.25rem',
+          }}
+        >
+          {suggestions.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => handleSuggestionClick(s.name)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0.65rem 1rem',
+                gap: '0.75rem',
+                cursor: 'pointer',
+                borderBottom: '1px solid var(--border)',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--muted-light)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              {s.image ? (
+                <img
+                  src={s.image}
+                  alt={s.name}
+                  style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }}
+                />
+              ) : (
+                <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: 'var(--muted-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
+                  🥦
+                </div>
+              )}
+              <div style={{ minWidth: 0, flexGrow: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.name}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 700, marginTop: '0.1rem' }}>
+                  {s.price.toLocaleString('ru-RU')} UZS
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -119,6 +228,7 @@ function AdminStoreSwitcher() {
 
 export default function Header() {
   const { store, user, cartCount, setShowLoginModal } = useApp();
+  const { t, language, setLanguage, theme, setTheme } = useLanguageTheme();
   const { isTelegram } = useTelegramWebApp();
   const [isAdminPage, setIsAdminPage] = useState(false);
   
@@ -163,10 +273,20 @@ export default function Header() {
               {renderLogo()}
             </Link>
 
-            <Link href={cartLink} className='action-btn cart-badge-wrapper' style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-              🛒
-              {cartCount > 0 && <span className='cart-badge' style={{ top: '-4px', right: '-4px' }}>{cartCount}</span>}
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {/* Language Selector */}
+              <button 
+                onClick={() => setLanguage(language === 'uz' ? 'ru' : 'uz')} 
+                style={{ background: 'none', border: '1px solid var(--border)', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+              >
+                {language.toUpperCase()}
+              </button>
+
+              <Link href={cartLink} className='action-btn cart-badge-wrapper' style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                🛒
+                {cartCount > 0 && <span className='cart-badge' style={{ top: '-4px', right: '-4px' }}>{cartCount}</span>}
+              </Link>
+            </div>
           </div>
         </header>
         <LoginModal />
@@ -194,7 +314,26 @@ export default function Header() {
             </Suspense>
           )}
 
-          <div className='header-actions'>
+          <div className='header-actions' style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            
+            {/* Dark Mode Toggle */}
+            <button 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+              style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)' }}
+              title={t('theme')}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
+
+            {/* Language Switcher */}
+            <button 
+              onClick={() => setLanguage(language === 'uz' ? 'ru' : 'uz')} 
+              style={{ background: 'none', border: '1px solid var(--border)', padding: '0.35rem 0.6rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+              title={t('language')}
+            >
+              {language.toUpperCase()}
+            </button>
+
             {user?.role === 'SUPER_ADMIN' && (
               <Link href='/admin/super' className='action-btn' style={{ color: '#8b5cf6', fontWeight: 'bold' }}>
                 👑 Super Admin
@@ -203,12 +342,12 @@ export default function Header() {
 
             {isUserAdmin && (
               <Link href='/admin' className='action-btn' style={{ color: 'var(--primary-color)' }}>
-                ⚙️ Админка
+                ⚙️ {t('adminPanel')}
               </Link>
             )}
 
             <Link href={cartLink} className='action-btn cart-badge-wrapper'>
-              🛒 Корзина
+              🛒 {t('cart')}
               {cartCount > 0 && <span className='cart-badge'>{cartCount}</span>}
             </Link>
 
@@ -218,7 +357,7 @@ export default function Header() {
               </Link>
             ) : (
               <button onClick={() => setShowLoginModal(true)} className='action-btn primary'>
-                🚪 Войти
+                🚪 {t('login')}
               </button>
             )}
           </div>

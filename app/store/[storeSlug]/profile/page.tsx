@@ -4,10 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useApp } from '@/context/AppContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useLanguageTheme } from '@/context/LanguageThemeContext';
 
 export default function ProfilePage() {
-  const { user, logout, fetchUser, setShowLoginModal } = useApp();
+  const { user, logout, fetchUser, setShowLoginModal, storeFetch } = useApp();
+  const { t } = useLanguageTheme();
+  const { storeSlug } = useParams();
+  const storePath = `/store/${storeSlug}`;
+  
   const router = useRouter();
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -35,10 +40,10 @@ export default function ProfilePage() {
   const fetchOrders = async () => {
     setLoadingOrders(true);
     try {
-      const res = await fetch('/api/orders');
+      const res = await storeFetch('/api/orders');
       if (res.ok) {
         const data = await res.json();
-        setOrders(data.orders);
+        setOrders(data.orders || []);
       }
     } catch (e) {
       console.error('Error fetching orders:', e);
@@ -52,7 +57,7 @@ export default function ProfilePage() {
     setUpdating(true);
     setError('');
     try {
-      const res = await fetch('/api/profile', {
+      const res = await storeFetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -78,7 +83,7 @@ export default function ProfilePage() {
     setLoginMessage('');
 
     try {
-      const res = await fetch('/api/auth/send-otp', {
+      const res = await storeFetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
@@ -103,33 +108,24 @@ export default function ProfilePage() {
     setLoginError('');
 
     try {
-      const res = await fetch('/api/auth/verify-otp', {
+      const res = await storeFetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code }),
       });
+      const data = await res.json();
       if (res.ok) {
         fetchUser();
+        setStep(1);
+        setPhone('+998');
+        setCode('');
       } else {
-        const data = await res.json();
         setLoginError(data.error || 'Неверный код');
       }
     } catch (err) {
-      setLoginError('Ошибка при верификации кода');
+      setLoginError('Ошибка сети');
     } finally {
       setLoginLoading(false);
-    }
-  };
-
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case 'NEW': return { label: 'Новый', class: 'new' };
-      case 'ACCEPTED': return { label: 'Принят', class: 'accepted' };
-      case 'ASSEMBLING': return { label: 'Собирается', class: 'assembling' };
-      case 'DELIVERING': return { label: 'В доставке', class: 'delivering' };
-      case 'COMPLETED': return { label: 'Завершен', class: 'completed' };
-      case 'CANCELLED': return { label: 'Отменен', class: 'cancelled' };
-      default: return { label: status, class: '' };
     }
   };
 
@@ -137,14 +133,39 @@ export default function ProfilePage() {
     return price.toLocaleString('ru-RU') + ' UZS';
   };
 
+  const translateStatus = (status: string) => {
+    const statusNames: Record<string, string> = {
+      NEW: 'Новый 🆕',
+      ACCEPTED: 'Принят ✅',
+      ASSEMBLING: 'Сборка 📦',
+      DELIVERING: 'В пути 🚚',
+      COMPLETED: 'Выполнен 🎉',
+      CANCELLED: 'Отменен ❌',
+    };
+    
+    let badgeClass = 'new';
+    if (status === 'COMPLETED') badgeClass = 'completed';
+    else if (status === 'CANCELLED') badgeClass = 'cancelled';
+    else if (status === 'ACCEPTED') badgeClass = 'accepted';
+    else if (status === 'ASSEMBLING') badgeClass = 'assembling';
+    else if (status === 'DELIVERING') badgeClass = 'delivering';
+
+    return {
+      label: statusNames[status] || status,
+      class: badgeClass
+    };
+  };
+
   return (
     <>
       <Header />
       
       <main className="main-content container">
+        <h3 className="section-title">{t('profile')}</h3>
+
         {!user ? (
-          <div style={{ maxWidth: '28rem', margin: '4rem auto', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.5rem', textAlign: 'center' }}>
+          <div className="card" style={{ maxWidth: '28rem', margin: '2rem auto', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.25rem', textAlign: 'center' }}>
               Вход в личный кабинет
             </h3>
 
@@ -243,7 +264,7 @@ export default function ProfilePage() {
                   )}
 
                   <button className="btn btn-danger" onClick={logout} style={{ fontSize: '0.9rem', marginTop: '1rem' }}>
-                    🚪 Выйти
+                    🚪 Chiqish
                   </button>
                 </div>
               </div>

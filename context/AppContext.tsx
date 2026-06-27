@@ -43,6 +43,7 @@ export interface CartItem {
 }
 
 interface AppContextType {
+  storeFetch: (url: string, init?: RequestInit) => Promise<Response>;
   store: any;
   fetchStore: () => Promise<void>;
   user: User | null;
@@ -312,6 +313,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         store,
         fetchStore,
+        storeFetch,
         user,
         loadingUser,
         cart,

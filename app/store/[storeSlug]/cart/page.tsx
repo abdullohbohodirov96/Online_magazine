@@ -5,9 +5,14 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useApp } from '@/context/AppContext';
+import { useLanguageTheme } from '@/context/LanguageThemeContext';
+import { useParams } from 'next/navigation';
 
 export default function CartPage() {
   const { cart, updateCartQuantity, removeFromCart, clearCart, totalAmount, cartCount } = useApp();
+  const { t } = useLanguageTheme();
+  const { storeSlug } = useParams();
+  const storePath = `/store/${storeSlug}`;
 
   const formatPrice = (price: number) => {
     return price.toLocaleString('ru-RU') + ' UZS';
@@ -18,24 +23,24 @@ export default function CartPage() {
       <Header />
       
       <main className="main-content container">
-        <h3 className="section-title">Ваша корзина</h3>
+        <h3 className="section-title">{t('cart')}</h3>
 
         {cart.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '5rem 2rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🛒</div>
-            <h4 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Ваша корзина пуста</h4>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{t('emptyCart')}</h4>
             <p style={{ color: 'var(--muted)', marginTop: '0.5rem', marginBottom: '2rem' }}>
               Самое время добавить в неё что-нибудь вкусное и свежее!
             </p>
-            <Link href="/" className="btn btn-primary" style={{ display: 'inline-flex', width: 'auto', padding: '0.75rem 2rem' }}>
-              Вернуться в каталог
+            <Link href={storePath} className="btn btn-primary" style={{ display: 'inline-flex', width: 'auto', padding: '0.75rem 2rem' }}>
+              {t('backToHome')}
             </Link>
           </div>
         ) : (
           <div className="cart-layout">
             <div className="cart-items-list">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{cartCount} товаров в корзине</span>
+                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{cartCount} {t('products')}</span>
                 <button
                   onClick={clearCart}
                   style={{ background: 'none', border: 'none', color: 'var(--danger)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
@@ -100,7 +105,7 @@ export default function CartPage() {
               <h4 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.25rem' }}>Детали заказа</h4>
               
               <div className="summary-row">
-                <span style={{ color: 'var(--muted)' }}>Товары ({cartCount})</span>
+                <span style={{ color: 'var(--muted)' }}>{t('products')} ({cartCount})</span>
                 <span style={{ fontWeight: 600 }}>{formatPrice(totalAmount)}</span>
               </div>
               <div className="summary-row">
@@ -109,15 +114,15 @@ export default function CartPage() {
               </div>
               
               <div className="summary-row total">
-                <span>Итого:</span>
+                <span>{t('total')}:</span>
                 <span>{formatPrice(totalAmount)}</span>
               </div>
 
-              <Link href="/checkout" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>
-                Оформить заказ
+              <Link href={`${storePath}/checkout`} className="btn btn-primary" style={{ marginTop: '1.5rem' }}>
+                {t('checkout')}
               </Link>
 
-              <Link href="/" className="btn btn-secondary" style={{ marginTop: '0.75rem', width: '100%', textAlign: 'center' }}>
+              <Link href={storePath} className="btn btn-secondary" style={{ marginTop: '0.75rem', width: '100%', textAlign: 'center' }}>
                 Продолжить покупки
               </Link>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 
 export default function LoginModal() {
@@ -28,6 +28,14 @@ export default function LoginModal() {
   const [otpCode, setOtpCode] = useState('');
   const [otpStep, setOtpStep] = useState(1);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('saved_login_phone');
+    if (saved) {
+      setLoginPhone(saved);
+    }
+  }, []);
+
+
   if (!showLoginModal) return null;
 
   const resetFields = () => {
@@ -53,6 +61,7 @@ export default function LoginModal() {
       });
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('saved_login_phone', loginPhone);
         setShowLoginModal(false);
         fetchUser();
         resetFields();
@@ -96,6 +105,7 @@ export default function LoginModal() {
       });
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('saved_login_phone', regPhone);
         setShowLoginModal(false);
         fetchUser();
         resetFields();

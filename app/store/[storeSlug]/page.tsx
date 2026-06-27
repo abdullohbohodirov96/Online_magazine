@@ -1,14 +1,16 @@
 'use client';
-import { Suspense } from 'react';
 
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useApp, Product, Category } from '@/context/AppContext';
+import { useLanguageTheme } from '@/context/LanguageThemeContext';
 
 function HomePageContent() {
-  const { cart, addToCart, updateCartQuantity } = useApp();
+  const { cart, addToCart, updateCartQuantity, storeFetch, store } = useApp();
+  const { t, language } = useLanguageTheme();
+  const { storeSlug } = useParams();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
 
@@ -16,11 +18,9 @@ function HomePageContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Selected product for detail modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // Fetch data
+  // Fetch data scoped to the store
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -29,11 +29,11 @@ function HomePageContent() {
         if (selectedCategoryId) {
           url += `&categoryId=${selectedCategoryId}`;
         }
-        const res = await fetch(url);
+        const res = await storeFetch(url);
         if (res.ok) {
           const data = await res.json();
-          setProducts(data.products);
-          setCategories(data.categories);
+          setProducts(data.products || []);
+          setCategories(data.categories || []);
         }
       } catch (error) {
         console.error('Error loading products:', error);
@@ -42,20 +42,20 @@ function HomePageContent() {
       }
     }
     fetchData();
-  }, [searchQuery, selectedCategoryId]);
+  }, [searchQuery, selectedCategoryId, storeSlug]);
 
   const handleCategoryClick = (id: string) => {
     if (selectedCategoryId === id) {
-      setSelectedCategoryId(null); // Clear filter
+      setSelectedCategoryId(null);
     } else {
       setSelectedCategoryId(id);
     }
   };
 
   const getStockStatus = (stock: number) => {
-    if (stock <= 0) return { label: 'Нет в наличии', class: 'out-of-stock' };
-    if (stock <= 10) return { label: 'Мало осталось', class: 'low-stock' };
-    return { label: 'В наличии', class: 'in-stock' };
+    if (stock <= 0) return { label: t('outOfStock'), class: 'out-of-stock' };
+    if (stock <= 10) return { label: t('lowStock'), class: 'low-stock' };
+    return { label: t('inStock'), class: 'in-stock' };
   };
 
   const formatPrice = (price: number) => {
@@ -69,17 +69,43 @@ function HomePageContent() {
       <main className="main-content container">
         {/* Banner */}
         {!searchQuery && !selectedCategoryId && (
-          <section className="promo-banner">
-            <div className="promo-content">
-              <h2 className="promo-title">Свежие продукты с доставкой на дом!</h2>
-              <p className="promo-desc">
-                Заказывайте лучшие овощи, фрукты, молочные продукты и напитки прямо сейчас. Быстрая доставка в любую точку Ташкента.
+          <section 
+            className="promo-banner" 
+            style={{
+              position: 'relative',
+              borderRadius: 'var(--radius-lg)',
+              padding: '3rem 2rem',
+              marginBottom: '2.5rem',
+              overflow: 'hidden',
+              backgroundColor: `${store?.primaryColor || '#10b981'}15`,
+              border: `1px solid ${store?.primaryColor || '#10b981'}30`,
+            }}
+          >
+            <div className="promo-content" style={{ maxWidth: '32rem', position: 'relative', zIndex: 1 }}>
+              <h2 className="promo-title" style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--foreground)' }}>
+                {t('freshFoodDelivery')}
+              </h2>
+              <p className="promo-desc" style={{ color: 'var(--muted)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                {store?.description || t('bannerDesc')}
               </p>
-              <button className="promo-btn" onClick={() => {
-                const element = document.getElementById('catalog');
-                element?.scrollIntoView({ behavior: 'smooth' });
-              }}>
-                Перейти к покупкам
+              <button 
+                className="promo-btn" 
+                onClick={() => {
+                  const element = document.getElementById('catalog');
+                  element?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                style={{
+                  padding: '0.75rem 2rem',
+                  backgroundColor: store?.primaryColor || 'var(--primary-color)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-md)',
+                }}
+              >
+                {t('goToCatalog')}
               </button>
             </div>
             <div style={{ position: 'absolute', right: '2rem', bottom: '-1rem', fontSize: '10rem', opacity: 0.15, transform: 'rotate(15deg)', userSelect: 'none' }}>
@@ -90,8 +116,8 @@ function HomePageContent() {
 
         {/* Categories Section */}
         <section id="catalog" style={{ marginBottom: '2.5rem' }}>
-          <h3 className="section-title">Категории товаров</h3>
-          <div className="categories-container">
+          <h3 className="section-title">{t('categories')}</h3>
+          <div className="categories-container" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
             {categories.map((cat) => {
               const isSelected = selectedCategoryId === cat.id;
               return (
@@ -100,14 +126,24 @@ function HomePageContent() {
                   className="category-card"
                   onClick={() => handleCategoryClick(cat.id)}
                   style={{
-                    borderColor: isSelected ? 'var(--primary-color)' : 'var(--border)',
-                    backgroundColor: isSelected ? 'var(--primary-light)' : 'var(--card-bg)',
+                    padding: '1rem 1.5rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    minWidth: '100px',
+                    textAlign: 'center',
+                    borderColor: isSelected ? (store?.primaryColor || 'var(--primary-color)') : 'var(--border)',
+                    backgroundColor: isSelected ? `${store?.primaryColor || '#10b981'}15` : 'var(--card-bg)',
+                    transition: 'all 0.2s ease',
                   }}
                 >
-                  <div className="category-image-wrapper">
+                  <div className="category-image-wrapper" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
                     {cat.image || '📦'}
                   </div>
-                  <span className="category-name" style={{ color: isSelected ? 'var(--primary-hover)' : 'var(--foreground)' }}>
+                  <span className="category-name" style={{ fontWeight: 600, fontSize: '0.9rem', color: isSelected ? (store?.primaryColor || 'var(--primary-hover)') : 'var(--foreground)' }}>
                     {cat.name}
                   </span>
                 </div>
@@ -118,20 +154,15 @@ function HomePageContent() {
 
         {/* Products Catalog */}
         <section style={{ minHeight: '30vh' }}>
-          <div className="section-title">
-            <span>
-              {searchQuery ? `Результаты поиска: "${searchQuery}"` : 'Каталог продуктов'}
-              {selectedCategoryId && categories.find(c => c.id === selectedCategoryId) && (
-                <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--muted)', marginLeft: '0.75rem' }}>
-                  ({categories.find(c => c.id === selectedCategoryId)?.name})
-                </span>
-              )}
+          <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+              {searchQuery ? `${t('searchResult')}: "${searchQuery}"` : t('catalog')}
             </span>
           </div>
 
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '10rem' }}>
-              <div style={{ border: '3px solid var(--border)', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', width: '2.5rem', height: '2.5rem', animation: 'spin 1s linear infinite' }}></div>
+              <div style={{ border: '3px solid var(--border)', borderTop: `3px solid ${store?.primaryColor || '#10b981'}`, borderRadius: '50%', width: '2.5rem', height: '2.5rem', animation: 'spin 1s linear infinite' }}></div>
               <style jsx>{`
                 @keyframes spin {
                   0% { transform: rotate(0deg); }
@@ -142,83 +173,95 @@ function HomePageContent() {
           ) : products.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem 2rem', backgroundColor: 'var(--card-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-              <h4>Товары не найдены</h4>
-              <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>Попробуйте изменить запрос или категорию фильтрации.</p>
+              <h4>{t('noProductsFound')}</h4>
+              <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>{t('changeFilters')}</p>
             </div>
           ) : (
-            <div className="products-grid">
+            <div className="products-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
               {products.map((product) => {
                 const stockInfo = getStockStatus(product.stock);
-                const cartItem = cart.find((item) => item.productId === product.id);
-                
-                // Check if product has discount
                 const hasDiscount = product.oldPrice && product.oldPrice > product.price;
+                const cartItem = cart.find((i) => i.productId === product.id);
 
                 return (
-                  <div key={product.id} className="product-card">
+                  <div 
+                    key={product.id} 
+                    className="product-card"
+                    style={{
+                      backgroundColor: 'var(--card-bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      boxShadow: 'var(--shadow-sm)',
+                      position: 'relative',
+                    }}
+                  >
                     {hasDiscount && (
-                      <span className="product-badge sale">
-                        Скидка -{Math.round(((product.oldPrice! - product.price) / product.oldPrice!) * 100)}%
+                      <span style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: 'var(--danger)', color: 'white', fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', zIndex: 1 }}>
+                        SALE
                       </span>
                     )}
 
-                    <div className="product-image-container" style={{ cursor: 'pointer' }} onClick={() => setSelectedProduct(product)}>
-                      {product.image ? (
-                        <img src={product.image} alt={product.name} className="product-img" onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop';
-                        }} />
-                      ) : (
-                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', fontSize: '4rem', backgroundColor: 'var(--muted-light)' }}>
-                          🥑
-                        </div>
-                      )}
+                    <div 
+                      onClick={() => setSelectedProduct(product)}
+                      style={{ cursor: 'pointer', position: 'relative', width: '100%', aspectRatio: '1', backgroundColor: 'var(--muted-light)', overflow: 'hidden' }}
+                    >
+                      <img
+                        src={product.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop'}
+                        alt={product.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
                     </div>
 
-                    <div className="product-info">
-                      <span className="product-category">
-                        {product.category?.name || 'Другое'}
+                    <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                        {product.category?.name || 'Category'}
                       </span>
-                      <h4 className="product-title" style={{ cursor: 'pointer' }} onClick={() => setSelectedProduct(product)}>
+                      <h4 
+                        style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.5rem 0', cursor: 'pointer', height: '2.4em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                        onClick={() => setSelectedProduct(product)}
+                      >
                         {product.name}
                       </h4>
                       
-                      <div className={`stock-status ${stockInfo.class}`}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: stockInfo.class === 'in-stock' ? 'var(--primary-color)' : 'var(--danger)', marginBottom: '1rem' }}>
                         ● {stockInfo.label} {product.stock > 0 && `(${product.stock} ${product.unit})`}
                       </div>
 
-                      <div className="product-footer">
-                        <div className="price-container">
-                          <span className="product-price">{formatPrice(product.price)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>{formatPrice(product.price)}</span>
                           {hasDiscount && (
-                            <span className="product-old-price">{formatPrice(product.oldPrice!)}</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', textDecoration: 'line-through' }}>{formatPrice(product.oldPrice!)}</span>
                           )}
                         </div>
 
                         {product.stock <= 0 ? (
-                          <button className="add-to-cart-btn" disabled style={{ backgroundColor: 'var(--border)', color: 'var(--muted)', cursor: 'not-allowed' }}>
+                          <button disabled style={{ backgroundColor: 'var(--border)', color: 'var(--muted)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'not-allowed' }}>
                             ❌
                           </button>
                         ) : cartItem ? (
-                          <div className="quantity-control">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <button
-                              className="quantity-btn"
                               onClick={() => updateCartQuantity(product.id, cartItem.quantity - 1)}
+                              style={{ border: 'none', backgroundColor: 'var(--muted-light)', borderRadius: 'var(--radius-sm)', width: '24px', height: '24px', cursor: 'pointer', fontWeight: 'bold' }}
                             >
                               -
                             </button>
-                            <span className="quantity-val">{cartItem.quantity}</span>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{cartItem.quantity}</span>
                             <button
-                              className="quantity-btn"
                               onClick={() => updateCartQuantity(product.id, cartItem.quantity + 1)}
+                              style={{ border: 'none', backgroundColor: store?.primaryColor || 'var(--primary-color)', color: 'white', borderRadius: 'var(--radius-sm)', width: '24px', height: '24px', cursor: 'pointer', fontWeight: 'bold' }}
                             >
                               +
                             </button>
                           </div>
                         ) : (
                           <button
-                            className="add-to-cart-btn"
                             onClick={() => addToCart(product, 1)}
-                            title="В корзину"
+                            style={{ border: 'none', backgroundColor: store?.primaryColor || 'var(--primary-color)', color: 'white', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 'bold' }}
                           >
                             ➕
                           </button>
@@ -235,57 +278,50 @@ function HomePageContent() {
 
       {/* Product Detail Modal */}
       {selectedProduct && (
-        <div className="modal-overlay" onClick={() => setSelectedProduct(null)}>
-          <div className="modal-content" style={{ maxWidth: '40rem' }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedProduct(null)}>&times;</button>
+        <div className="modal-overlay" onClick={() => setSelectedProduct(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ maxWidth: '40rem', backgroundColor: 'var(--card-bg)', color: 'var(--foreground)', padding: '2rem', borderRadius: 'var(--radius-lg)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setSelectedProduct(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
             
-            <div className="product-detail-layout">
-              <div className="product-detail-gallery">
+            <div className="product-detail-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '2rem' }}>
+              <div className="product-detail-gallery" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
                 <img
                   src={selectedProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop'}
                   alt={selectedProduct.name}
-                  className="product-detail-img"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop';
-                  }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>
               
-              <div className="product-detail-info">
+              <div className="product-detail-info" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <span className="product-category" style={{ fontSize: '0.85rem' }}>
-                    {selectedProduct.category?.name || 'Другое'}
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {selectedProduct.category?.name || 'Category'}
                   </span>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.25rem 0' }}>
                     {selectedProduct.name}
                   </h2>
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
-                    {selectedProduct.barcode && <span>Штрихкод: <strong>{selectedProduct.barcode}</strong></span>}
-                    {selectedProduct.nomenclatureCode && <span>Код номенклатуры: <strong>{selectedProduct.nomenclatureCode}</strong></span>}
-                    <span>Единица измерения: <strong>{selectedProduct.unit}</strong></span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--muted)', margin: '0.5rem 0' }}>
+                    {selectedProduct.barcode && <span>{t('barcode')}: <strong>{selectedProduct.barcode}</strong></span>}
+                    {selectedProduct.nomenclatureCode && <span>{t('nomenclatureCode')}: <strong>{selectedProduct.nomenclatureCode}</strong></span>}
+                    <span>{t('unit')}: <strong>{selectedProduct.unit}</strong></span>
                   </div>
 
-                  <div className={`stock-status ${getStockStatus(selectedProduct.stock).class}`} style={{ marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: getStockStatus(selectedProduct.stock).class === 'in-stock' ? 'var(--primary-color)' : 'var(--danger)', margin: '0.5rem 0' }}>
                     ● {getStockStatus(selectedProduct.stock).label} {selectedProduct.stock > 0 && `(${selectedProduct.stock} ${selectedProduct.unit})`}
                   </div>
 
-                  <div className="price-container" style={{ margin: '1rem 0' }}>
-                    <span className="product-price" style={{ fontSize: '1.75rem' }}>
-                      {formatPrice(selectedProduct.price)}
-                    </span>
+                  <div style={{ margin: '1rem 0' }}>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 800 }}>{formatPrice(selectedProduct.price)}</span>
                     {selectedProduct.oldPrice && selectedProduct.oldPrice > selectedProduct.price && (
-                      <span className="product-old-price" style={{ fontSize: '1.125rem' }}>
-                        {formatPrice(selectedProduct.oldPrice)}
-                      </span>
+                      <span style={{ fontSize: '1rem', color: 'var(--muted)', textDecoration: 'line-through', marginLeft: '0.75rem' }}>{formatPrice(selectedProduct.oldPrice)}</span>
                     )}
                   </div>
                 </div>
 
                 {selectedProduct.description && (
                   <div>
-                    <h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Описание</h5>
-                    <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    <h5 style={{ fontWeight: 700, marginBottom: '0.25rem' }}>{t('description')}</h5>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.875rem', lineHeight: '1.5', margin: 0 }}>
                       {selectedProduct.description}
                     </p>
                   </div>
@@ -294,14 +330,14 @@ function HomePageContent() {
                 <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
                   {selectedProduct.stock <= 0 ? (
                     <button className="btn btn-secondary" disabled style={{ cursor: 'not-allowed', width: '100%' }}>
-                      Нет в наличии
+                      {t('outOfStock')}
                     </button>
                   ) : (() => {
                     const cartItem = cart.find(i => i.productId === selectedProduct.id);
                     return cartItem ? (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', width: '100%' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Уже в корзине:</span>
-                        <div className="quantity-control" style={{ scale: '1.2' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{t('alreadyInCart')}</span>
+                        <div className="quantity-control">
                           <button
                             className="quantity-btn"
                             onClick={() => updateCartQuantity(selectedProduct.id, cartItem.quantity - 1)}
@@ -321,9 +357,9 @@ function HomePageContent() {
                       <button
                         className="btn btn-primary"
                         onClick={() => addToCart(selectedProduct, 1)}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', backgroundColor: store?.primaryColor }}
                       >
-                        Добавить в корзину
+                        {t('addToCart')}
                       </button>
                     );
                   })()}
@@ -338,7 +374,6 @@ function HomePageContent() {
     </>
   );
 }
-
 
 export default function HomePage() {
   return (

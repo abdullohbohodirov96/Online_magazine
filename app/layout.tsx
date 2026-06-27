@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppProvider } from '@/context/AppContext';
+import { LanguageThemeProvider } from '@/context/LanguageThemeContext';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
@@ -16,9 +17,11 @@ export default function RootLayout({
   return (
     <html lang='ru'>
       <body>
-        <AppProvider>
-          {children}
-        </AppProvider>
+        <LanguageThemeProvider>
+          <AppProvider>
+            {children}
+          </AppProvider>
+        </LanguageThemeProvider>
         <Script src='https://telegram.org/js/telegram-web-app.js' strategy='beforeInteractive' />
       </body>
     </html>
