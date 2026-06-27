@@ -8,7 +8,7 @@ import MiniAppLayout from '@/components/MiniAppLayout';
 import YandexAddressPicker from '@/components/YandexAddressPicker';
 
 export default function CheckoutPage() {
-  const { cart, totalAmount, clearCart, user } = useApp();
+  const { cart, totalAmount, clearCart, user, loadingCart } = useApp();
   const { tgUser } = useTelegramWebApp();
   const router = useRouter();
 
@@ -143,6 +143,19 @@ export default function CheckoutPage() {
       setLoading(false);
     }
   };
+
+  
+  if (loadingCart) {
+    return (
+      <MiniAppLayout title="Оформление заказа" showBackButton>
+        <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+          <div style={{ border: '3px solid var(--border)', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', width: '2rem', height: '2rem', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+          <h4>Yuklanmoqda...</h4>
+          <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }' }} />
+        </div>
+      </MiniAppLayout>
+    );
+  }
 
   if (successOrder) {
     return (

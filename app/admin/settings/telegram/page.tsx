@@ -8,6 +8,14 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminTelegramSettingsPage() {
   const { user, loadingUser } = useApp();
+
+  const isAuthorized = !!user && (
+    user.role === 'ADMIN' ||
+    user.role === 'SUPER_ADMIN' ||
+    user.role === 'STORE_OWNER' ||
+    user.role === 'STORE_ADMIN'
+  );
+
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -48,7 +56,7 @@ export default function AdminTelegramSettingsPage() {
   };
 
   useEffect(() => {
-    if (!loadingUser && (!user || user.role !== 'ADMIN')) {
+    if (!loadingUser && (!user || !isAuthorized)) {
       // Access denied
     } else {
       fetchSettings();
@@ -138,7 +146,7 @@ export default function AdminTelegramSettingsPage() {
 
   if (loadingUser) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Загрузка...</div>;
 
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || !isAuthorized) {
     return (
       <>
         <Header />

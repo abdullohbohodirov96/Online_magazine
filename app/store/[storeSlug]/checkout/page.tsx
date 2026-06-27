@@ -11,7 +11,7 @@ import { useLanguageTheme } from '@/context/LanguageThemeContext';
 import YandexAddressPicker from '@/components/YandexAddressPicker';
 
 export default function CheckoutPage() {
-  const { user, cart, totalAmount, fetchCart, setShowLoginModal, storeFetch } = useApp();
+  const { user, cart, totalAmount, fetchCart, setShowLoginModal, storeFetch, loadingCart, loadingUser } = useApp();
   const { t } = useLanguageTheme();
   const { storeSlug } = useParams();
   const storePath = `/store/${storeSlug}`;
@@ -45,10 +45,10 @@ export default function CheckoutPage() {
   }, [user]);
 
   useEffect(() => {
-    if (cart.length === 0 && !orderSuccess) {
+    if (!loadingUser && !loadingCart && cart.length === 0 && !orderSuccess) {
       router.push(storePath);
     }
-  }, [cart, orderSuccess, router, storePath]);
+  }, [cart, loadingUser, loadingCart, orderSuccess, router, storePath]);
 
   const handleAddressChange = (data: { address: string; yandexAddress: string; latitude: number; longitude: number }) => {
     setAddress(data.address);
@@ -135,6 +135,21 @@ export default function CheckoutPage() {
   const formatPrice = (price: number) => {
     return price.toLocaleString('ru-RU') + ' UZS';
   };
+
+  
+  if (loadingUser || loadingCart) {
+    return (
+      <>
+        <Header />
+        <main className="main-content container" style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+          <div style={{ border: '3px solid var(--border)', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', width: '2.5rem', height: '2.5rem', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }}></div>
+          <h4>Yuklanmoqda...</h4>
+          <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }' }} />
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   if (orderSuccess) {
     return (

@@ -8,6 +8,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 function AdminPageContent() {
   const { user, loadingUser } = useApp();
+
+  const isAuthorized = !!user && (
+    user.role === 'ADMIN' ||
+    user.role === 'SUPER_ADMIN' ||
+    user.role === 'STORE_OWNER' ||
+    user.role === 'STORE_ADMIN'
+  );
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,7 +30,7 @@ function AdminPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!loadingUser && (!user || user.role !== 'ADMIN')) {
+    if (!loadingUser && (!user || !isAuthorized)) {
       // Access denied handled in render
     }
   }, [user, loadingUser]);
@@ -35,7 +43,7 @@ function AdminPageContent() {
     );
   }
 
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || !isAuthorized) {
     return (
       <>
         <Header />

@@ -64,6 +64,9 @@ model Store {
   phone             String?
   supportPhone      String?
   telegramUsername  String?
+  facebookUrl       String?
+  youtubeUrl        String?
+  branches          Branch[]
   instagramUsername String?
   email             String?
   address           String?
@@ -323,4 +326,18 @@ model TelegramSettings {
 
   storeId             String   @unique
   store               Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+
+model Branch {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

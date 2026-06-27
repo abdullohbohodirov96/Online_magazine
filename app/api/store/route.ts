@@ -5,7 +5,16 @@ import { prisma } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
-    const store = await resolveStoreFromRequest(request);
+    const resolvedStore = await resolveStoreFromRequest(request);
+    const store = await prisma.store.findUnique({
+      where: { id: resolvedStore.id },
+      include: {
+        branches: true,
+        telegramSettings: true,
+        smsSettings: true,
+        integrationSettings: true,
+      },
+    });
     return NextResponse.json({ store });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -20,7 +29,19 @@ export async function PUT(request: Request) {
     }
 
     const data = await request.json();
-    const { name, description, logoUrl, bannerUrl, primaryColor, backgroundColor, textColor } = data;
+    const {
+      name,
+      description,
+      logoUrl,
+      bannerUrl,
+      primaryColor,
+      backgroundColor,
+      textColor,
+      telegramUsername,
+      instagramUsername,
+      facebookUrl,
+      youtubeUrl,
+    } = data;
 
     const updatedStore = await prisma.store.update({
       where: { id: store.id },
@@ -32,6 +53,10 @@ export async function PUT(request: Request) {
         primaryColor: primaryColor !== undefined ? primaryColor : undefined,
         backgroundColor: backgroundColor !== undefined ? backgroundColor : undefined,
         textColor: textColor !== undefined ? textColor : undefined,
+        telegramUsername: telegramUsername !== undefined ? telegramUsername : undefined,
+        instagramUsername: instagramUsername !== undefined ? instagramUsername : undefined,
+        facebookUrl: facebookUrl !== undefined ? facebookUrl : undefined,
+        youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : undefined,
       },
     });
 

@@ -24,6 +24,21 @@ export default function StoreDesignPage() {
   const [backgroundColor, setBackgroundColor] = useState('#f8fafc');
   const [textColor, setTextColor] = useState('#0f172a');
 
+  // Social Links states
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [instagramUsername, setInstagramUsername] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+
+  // Branches states
+  const [branches, setBranches] = useState<any[]>([]);
+  const [branchName, setBranchName] = useState('');
+  const [branchPhone, setBranchPhone] = useState('');
+  const [branchAddress, setBranchAddress] = useState('');
+  const [branchLat, setBranchLat] = useState('');
+  const [branchLng, setBranchLng] = useState('');
+  const [addingBranch, setAddingBranch] = useState(false);
+
   // Loading settings
   useEffect(() => {
     async function loadBranding() {
@@ -39,6 +54,15 @@ export default function StoreDesignPage() {
             setPrimaryColor(data.store.primaryColor || '#10b981');
             setBackgroundColor(data.store.backgroundColor || '#f8fafc');
             setTextColor(data.store.textColor || '#0f172a');
+
+            // Social media
+            setTelegramUsername(data.store.telegramUsername || '');
+            setInstagramUsername(data.store.instagramUsername || '');
+            setFacebookUrl(data.store.facebookUrl || '');
+            setYoutubeUrl(data.store.youtubeUrl || '');
+
+            // Branches
+            setBranches(data.store.branches || []);
           }
         }
       } catch (err) {
@@ -129,16 +153,19 @@ export default function StoreDesignPage() {
           primaryColor,
           backgroundColor,
           textColor,
+          telegramUsername,
+          instagramUsername,
+          facebookUrl,
+          youtubeUrl,
         }),
       });
 
       if (res.ok) {
         setSuccess('Настройки брендинга успешно сохранены!');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        // Reload page styling automatically
         setTimeout(() => {
           window.location.reload();
-        }, 1500);
+        }, 1200);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Ошибка при сохранении');
@@ -150,11 +177,71 @@ export default function StoreDesignPage() {
     }
   };
 
+  const handleAddBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchName.trim()) return;
+
+    setAddingBranch(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/admin/branches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: branchName,
+          phone: branchPhone,
+          address: branchAddress,
+          latitude: branchLat ? parseFloat(branchLat) : null,
+          longitude: branchLng ? parseFloat(branchLng) : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setBranches([...branches, data.branch]);
+        setBranchName('');
+        setBranchPhone('');
+        setBranchAddress('');
+        setBranchLat('');
+        setBranchLng('');
+        setSuccess('Филиал успешно добавлен!');
+      } else {
+        setError(data.error || 'Не удалось добавить филиал');
+      }
+    } catch (err) {
+      setError('Ошибка сети при добавлении филиала');
+    } finally {
+      setAddingBranch(false);
+    }
+  };
+
+  const handleDeleteBranch = async (id: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот филиал?')) return;
+    setError('');
+
+    try {
+      const res = await fetch(`/api/admin/branches?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setBranches(branches.filter((b) => b.id !== id));
+        setSuccess('Филиал успешно удален!');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Не удалось удалить филиал');
+      }
+    } catch (err) {
+      setError('Ошибка сети при удалении филиала');
+    }
+  };
+
   return (
     <>
       <Header />
       <main className="main-content container">
-        <h3 className="section-title">Настройки брендинга магазина</h3>
+        <h3 className="section-title">Настройки брендинга и филиалов</h3>
 
         <div className="admin-layout">
           <aside className="admin-sidebar">
@@ -178,102 +265,188 @@ export default function StoreDesignPage() {
 
           <section className="admin-main" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem', alignItems: 'start' }}>
             
-            {/* Form Column */}
-            <div className="card" style={{ padding: '2rem' }}>
+            {/* Form Fields Column */}
+            <div>
               {error && (
-                <div style={{ padding: '1rem', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#991b1b', borderRadius: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', fontWeight: 600 }}>
                   {error}
                 </div>
               )}
               {success && (
-                <div style={{ padding: '1rem', backgroundColor: '#ecfdf5', borderLeft: '4px solid #10b981', color: '#065f46', borderRadius: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                <div style={{ color: 'var(--primary-hover)', backgroundColor: 'var(--primary-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', fontWeight: 600 }}>
                   {success}
                 </div>
               )}
 
-              {loading ? (
-                <div>Загрузка настроек брендинга...</div>
-              ) : (
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' }}>
+                <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', margin: 0 }}>
+                  🎨 Настройки стилей и логотипа
+                </h4>
+
+                <div className="form-group">
+                  <label className="form-label">Название магазина</label>
+                  <input type="text" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Например: Bozor Market" />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Описание магазина</label>
+                  <textarea className="form-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Например: Доставка свежих овощей и фруктов по Ташкенту" rows={3} style={{ resize: 'vertical' }} />
+                </div>
+
+                {/* Logo Upload */}
+                <div className="form-group">
+                  <label className="form-label">Логотип магазина</label>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {logoUrl && (
+                      <img src={logoUrl} alt="Logo" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-sm)', objectFit: 'contain', border: '1px solid var(--border)', backgroundColor: '#f8fafc' }} />
+                    )}
+                    <input type="text" className="form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." style={{ flex: 1 }} />
+                    <label style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--muted-light)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Загрузить
+                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Banner Upload */}
+                <div className="form-group">
+                  <label className="form-label">Баннер на главной</label>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {bannerUrl && (
+                      <img src={bannerUrl} alt="Banner" style={{ width: '80px', height: '48px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid var(--border)' }} />
+                    )}
+                    <input type="text" className="form-input" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://..." style={{ flex: 1 }} />
+                    <label style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--muted-light)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Загрузить
+                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Social Networks Links */}
+                <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginTop: '1rem', margin: 0 }}>
+                  🌐 Социальные сети do'koni
+                </h4>
+
+                <div className="form-group">
+                  <label className="form-label">Telegram Username / Havola</label>
+                  <input type="text" className="form-input" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value)} placeholder="Например: t.me/username yoki @username" />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Instagram Username / Havola</label>
+                  <input type="text" className="form-input" value={instagramUsername} onChange={(e) => setInstagramUsername(e.target.value)} placeholder="Например: instagram.com/username yoki @username" />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Facebook Havolasi (URL)</label>
+                  <input type="text" className="form-input" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="https://facebook.com/page-name" />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">YouTube Havolasi (URL)</label>
+                  <input type="text" className="form-input" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/c/channel-name" />
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+
+                {/* Colors */}
+                <div>
+                  <h4 style={{ fontWeight: 700, marginBottom: '0.75rem', fontSize: '1rem' }}>Цветовая гамма сайта</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Главный цвет (акцент)</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
+                        <input type="text" className="form-input" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Цвет фона сайта</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
+                        <input type="text" className="form-input" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Цвет текста сайта</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
+                        <input type="text" className="form-input" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary" disabled={saving} style={{ width: '100%', marginTop: '1rem' }}>
+                  {saving ? 'Сохранение...' : 'Сохранить настройки'}
+                </button>
+              </form>
+
+              {/* BRANCHES SECTION */}
+              <div style={{ marginTop: '2.5rem', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' }}>
+                <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.5rem', margin: 0 }}>
+                  🏢 Филиалы магазина (Branches)
+                </h4>
+
+                <form onSubmit={handleAddBranch} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: 'var(--muted-light)', padding: '1.25rem', borderRadius: 'var(--radius-md)', marginBottom: '2rem' }}>
+                  <h5 style={{ fontWeight: 700, margin: 0, fontSize: '0.9rem' }}>Добавить новый филиал</h5>
                   
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 600 }}>Название магазина *</label>
-                    <input type="text" className="form-input" required value={name} onChange={(e) => setName(e.target.value)} />
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Название филиала *</label>
+                    <input type="text" className="form-input" value={branchName} onChange={(e) => setBranchName(e.target.value)} required placeholder="Например: Чиланзарский филиал" />
                   </div>
 
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 600 }}>Описание / Слоган</label>
-                    <textarea className="form-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} style={{ resize: 'vertical' }} />
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Телефон филиала</label>
+                    <input type="text" className="form-input" value={branchPhone} onChange={(e) => setBranchPhone(e.target.value)} placeholder="+998 90 123-45-67" />
                   </div>
 
-                  {/* Logo Upload */}
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 600 }}>Логотип магазина (URL или файл)</label>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      {logoUrl && (
-                        <img src={logoUrl} alt="Logo" style={{ width: '48px', height: '48px', borderRadius: '0.5rem', objectFit: 'contain', border: '1px solid var(--border)', backgroundColor: '#fff' }} />
-                      )}
-                      <input type="text" className="form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." style={{ flex: 1 }} />
-                      <label style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--muted-light)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-                        Загрузить
-                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} style={{ display: 'none' }} />
-                      </label>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Адрес филиала</label>
+                    <input type="text" className="form-input" value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} placeholder="Например: Чиланзар, кв-л 1, д 2" />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Широта (Latitude)</label>
+                      <input type="number" step="any" className="form-input" value={branchLat} onChange={(e) => setBranchLat(e.target.value)} placeholder="41.12345" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Долгота (Longitude)</label>
+                      <input type="number" step="any" className="form-input" value={branchLng} onChange={(e) => setBranchLng(e.target.value)} placeholder="69.12345" />
                     </div>
                   </div>
 
-                  {/* Banner Upload */}
-                  <div>
-                    <label className="form-label" style={{ fontWeight: 600 }}>Баннер каталога (URL или файл)</label>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      {bannerUrl && (
-                        <img src={bannerUrl} alt="Banner" style={{ width: '80px', height: '48px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid var(--border)' }} />
-                      )}
-                      <input type="text" className="form-input" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://..." style={{ flex: 1 }} />
-                      <label style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--muted-light)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-                        Загрузить
-                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} style={{ display: 'none' }} />
-                      </label>
-                    </div>
-                  </div>
-
-                  <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
-
-                  {/* Colors */}
-                  <div>
-                    <h4 style={{ fontWeight: 700, marginBottom: '0.75rem', fontSize: '1rem' }}>Цветовая гамма сайта</h4>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label className="form-label" style={{ fontSize: '0.8rem' }}>Главный цвет (акцент)</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
-                          <input type="text" className="form-input" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '0.8rem' }}>Цвет фона сайта</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
-                          <input type="text" className="form-input" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '0.8rem' }}>Цвет текста сайта</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '36px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '0.25rem' }} />
-                          <input type="text" className="form-input" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ fontSize: '0.85rem' }} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button type="submit" className="btn btn-primary" disabled={saving} style={{ width: '100%', marginTop: '1rem' }}>
-                    {saving ? 'Сохранение...' : 'Сохранить настройки'}
+                  <button type="submit" className="btn btn-primary" style={{ width: 'auto', alignSelf: 'flex-start', padding: '0.5rem 1.5rem', fontSize: '0.85rem' }} disabled={addingBranch}>
+                    {addingBranch ? 'Добавление...' : 'Добавить филиал'}
                   </button>
                 </form>
-              )}
+
+                {/* Branches List */}
+                <h5 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>Существующие филиалы ({branches.length})</h5>
+                {branches.length === 0 ? (
+                  <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Филиалы не зарегистрированы.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {branches.map((b) => (
+                      <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: '#fff' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{b.name}</div>
+                          {b.phone && <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>📞 {b.phone}</div>}
+                          {b.address && <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>📍 {b.address}</div>}
+                          {(b.latitude || b.longitude) && <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>🧭 Coords: {b.latitude}, {b.longitude}</div>}
+                        </div>
+                        <button type="button" className="btn btn-danger" onClick={() => handleDeleteBranch(b.id)} style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                          Удалить
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Live Preview Column */}
