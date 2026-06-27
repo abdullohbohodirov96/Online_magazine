@@ -259,7 +259,7 @@ export default function Header() {
     }
     return (
       <>
-        🍎 <span>{store ? store.name : 'Bozor'}{!store && <span>Market</span>}</span>
+        <span>{store ? store.name : 'BozorMarket'}</span>
       </>
     );
   };
@@ -315,6 +315,11 @@ export default function Header() {
           )}
 
           <div className='header-actions' style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {store?.phone && (
+              <a href={`tel:${store.phone}`} className='phone-link' style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 600 }}>
+                📞 {store.phone}
+              </a>
+            )}
             
             {/* Dark Mode Toggle */}
             <button 

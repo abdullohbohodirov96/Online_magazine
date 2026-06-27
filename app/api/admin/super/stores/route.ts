@@ -20,6 +20,7 @@ export async function GET() {
     const stores = await prisma.store.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        storeDomains: true,
         storeUsers: {
           include: {
             user: {
@@ -46,7 +47,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, slug, primaryColor, description, ownerPhone } = await request.json();
+    const data = await request.json();
+    const {
+      name,
+      slug,
+      primaryColor,
+      description,
+      ownerPhone,
+      logoUrl,
+      phone,
+      telegramUsername,
+      instagramUsername,
+      facebookUrl,
+      youtubeUrl,
+      domain,
+    } = data;
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Название и slug обязательны' }, { status: 400 });
@@ -96,6 +111,12 @@ export async function POST(request: Request) {
           slug: cleanSlug,
           primaryColor: primaryColor || '#10b981',
           description: description || null,
+          logoUrl: logoUrl || null,
+          phone: phone || null,
+          telegramUsername: telegramUsername || null,
+          instagramUsername: instagramUsername || null,
+          facebookUrl: facebookUrl || null,
+          youtubeUrl: youtubeUrl || null,
         },
       });
 
@@ -141,13 +162,34 @@ export async function POST(request: Request) {
         }
       }
 
+      // Create domain if provided
+      if (domain) {
+        const cleanDomain = domain.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '');
+        if (cleanDomain) {
+          // Check uniqueness
+          const existingDomain = await tx.storeDomain.findUnique({
+            where: { domain: cleanDomain },
+          });
+          if (existingDomain) {
+            throw new Error('Этот домен уже используется другим магазином');
+          }
+          await tx.storeDomain.create({
+            data: {
+              storeId: newStore.id,
+              domain: cleanDomain,
+              isPrimary: true,
+            },
+          });
+        }
+      }
+
       return newStore;
     });
 
     return NextResponse.json({ success: true, store });
   } catch (error: any) {
     console.error('Error creating store:', error);
-    return NextResponse.json({ error: 'Ошибка сервера при создании магазина: ' + (error.message || error) }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Ошибка сервера при создании магазина' }, { status: 500 });
   }
 }
 

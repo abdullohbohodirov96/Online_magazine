@@ -31,7 +31,7 @@ export default function Footer() {
       <div className='container footer-inner'>
         <div className='footer-section'>
           <h4 style={{ color: 'var(--primary-color)', margin: '0 0 1rem 0' }}>
-            🍎 {store ? store.name : 'BozorMarket'}
+            {store ? store.name : 'BozorMarket'}
           </h4>
           <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
             {store?.description || t('bannerDesc')}
@@ -178,9 +178,16 @@ export default function Footer() {
         <div className='footer-section'>
           <h4>{t('contacts')}</h4>
           <ul className='footer-links'>
-            <li>📍 Toshkent, O'zbekiston</li>
-            <li>📞 +998 (91) 785-00-90</li>
-            <li>✉️ support@bozormarket.uz</li>
+            <li>📍 {store?.address || 'Toshkent, O\'zbekiston'}</li>
+            {store?.phone && (
+              <li>📞 {store.phone}</li>
+            )}
+            {store?.supportPhone && (
+              <li>📞 {store.supportPhone} (Support)</li>
+            )}
+            {store?.email && (
+              <li>✉️ {store.email}</li>
+            )}
           </ul>
         </div>
       </div>

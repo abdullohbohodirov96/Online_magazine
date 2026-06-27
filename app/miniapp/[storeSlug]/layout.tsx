@@ -22,6 +22,8 @@ export default async function MiniAppLayout({
           --primary-color: ${store.primaryColor || '#10b981'};
           --primary-hover: ${store.primaryColor}ee;
           --primary-light: ${store.primaryColor}15;
+        }
+        html:not([data-theme='dark']) {
           --background: ${store.backgroundColor || '#f8fafc'};
           --foreground: ${store.textColor || '#0f172a'};
         }

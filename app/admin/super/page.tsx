@@ -10,7 +10,14 @@ interface Store {
   isActive: boolean;
   primaryColor: string;
   description: string | null;
+  logoUrl: string | null;
+  phone: string | null;
+  telegramUsername: string | null;
+  instagramUsername: string | null;
+  facebookUrl: string | null;
+  youtubeUrl: string | null;
   createdAt: string;
+  storeDomains?: Array<{ domain: string; isPrimary: boolean }>;
   storeUsers: Array<{
     role: string;
     user: {
@@ -25,12 +32,19 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Form state
+  // Form states
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#10b981');
   const [description, setDescription] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [phone, setPhone] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [instagramUsername, setInstagramUsername] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [domain, setDomain] = useState('');
   
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +71,30 @@ export default function SuperAdminDashboard() {
     fetchStores();
   }, []);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setLogoUrl(data.url);
+      } else {
+        alert(data.error || 'Rasm yuklashda xatolik');
+      }
+    } catch (err) {
+      alert('Rasm yuklashda tarmoq xatoligi');
+    }
+  };
+
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -72,6 +110,13 @@ export default function SuperAdminDashboard() {
           primaryColor,
           description,
           ownerPhone: ownerPhone.trim() || undefined,
+          logoUrl: logoUrl || undefined,
+          phone: phone || undefined,
+          telegramUsername: telegramUsername || undefined,
+          instagramUsername: instagramUsername || undefined,
+          facebookUrl: facebookUrl || undefined,
+          youtubeUrl: youtubeUrl || undefined,
+          domain: domain || undefined,
         }),
       });
 
@@ -83,13 +128,20 @@ export default function SuperAdminDashboard() {
         setPrimaryColor('#10b981');
         setDescription('');
         setOwnerPhone('');
+        setLogoUrl('');
+        setPhone('');
+        setTelegramUsername('');
+        setInstagramUsername('');
+        setFacebookUrl('');
+        setYoutubeUrl('');
+        setDomain('');
         fetchStores();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Do\'kon yaratishda xatolik yuz berdi');
       }
-    } catch (err) {
-      setError('Server bilan bog\'lanish xatosi');
+    } catch (err: any) {
+      setError(err.message || 'Server bilan bog\'lanish xatosi');
     } finally {
       setSubmitting(false);
     }
@@ -104,12 +156,9 @@ export default function SuperAdminDashboard() {
       });
       if (res.ok) {
         fetchStores();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Statusni o\'zgartirishda xatolik');
       }
-    } catch (e) {
-      alert('Bog\'lanish xatosi');
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -118,57 +167,76 @@ export default function SuperAdminDashboard() {
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
         {/* Header */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Super Admin Panel</h1>
-            <p style={{ color: '#64748b', marginTop: '0.25rem', marginBottom: 0 }}>Platformadagi barcha do'konlarni boshqarish</p>
+            <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>👑 Super Admin paneli</h1>
+            <p style={{ color: '#64748b', marginTop: '0.25rem', margin: 0 }}>Marketplace platformasidagi barcha do'konlarni boshqarish</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <Link href="/admin" style={{ padding: '0.75rem 1.25rem', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.75rem', color: '#334155', fontWeight: 600, textDecoration: 'none', fontSize: '0.9rem', transition: 'all 0.2s' }}>
-              Do'kon boshqaruviga o'tish
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <Link href="/" style={{ padding: '0.75rem 1.5rem', backgroundColor: '#e2e8f0', color: '#334155', borderRadius: '0.75rem', fontWeight: 700, textDecoration: 'none' }}>
+              Bosh sahifaga qaytish
             </Link>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.25rem', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '0.75rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgb(16 185 129 / 0.1)', transition: 'all 0.2s' }}>
-              + Yangi do'kon yaratish
+            <button 
+              onClick={() => setShowModal(true)}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '0.75rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)' }}
+            >
+              + Yangi do'kon ochish
             </button>
           </div>
-        </header>
+        </div>
 
         {error && (
-          <div style={{ padding: '1rem', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#991b1b', borderRadius: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            {error}
+          <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', padding: '1rem', borderRadius: '0.75rem', marginBottom: '2rem', fontWeight: 600 }}>
+            ⚠️ {error}
           </div>
         )}
 
-        {/* List Grid */}
+        {/* Stores list */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '5rem 0', color: '#64748b' }}>Do'konlar yuklanmoqda...</div>
+          <div style={{ textAlign: 'center', padding: '5rem 0' }}>
+            <div style={{ border: '4px solid #e2e8f0', borderTop: '4px solid #10b981', borderRadius: '50%', width: '3rem', height: '3rem', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }}></div>
+            <h3 style={{ color: '#64748b' }}>Do'konlar ro'yxati yuklanmoqda...</h3>
+            <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }' }} />
+          </div>
         ) : stores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '5rem 0', backgroundColor: '#ffffff', borderRadius: '1rem', border: '1px dashed #e2e8f0', color: '#64748b' }}>
-            <h3>Hozircha hech qanday do'kon qo'shilmagan</h3>
-            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Do'kon yaratish uchun yuqoridagi tugmani bosing.</p>
+          <div style={{ textAlign: 'center', padding: '5rem 0', backgroundColor: '#ffffff', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ color: '#64748b', margin: 0 }}>Tizimda hozircha do'konlar mavjud emas</h3>
+            <p style={{ color: '#94a3b8', marginTop: '0.5rem', marginBottom: '1.5rem' }}>Boshlash uchun yangi do'kon qo'shing</p>
+            <button onClick={() => setShowModal(true)} style={{ padding: '0.6rem 1.5rem', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '0.5rem', fontWeight: 600, cursor: 'pointer' }}>
+              Birinchi do'konni ochish
+            </button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '2rem' }}>
             {stores.map((store) => {
-              const owner = store.storeUsers.find(u => u.role === 'STORE_OWNER')?.user;
-              return (
-                <div key={store.id} style={{ backgroundColor: '#ffffff', borderRadius: '1rem', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
-                  
-                  {/* Color strip */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '6px', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', backgroundColor: store.primaryColor }} />
+              const ownerRelation = store.storeUsers.find((su) => su.role === 'STORE_OWNER');
+              const owner = ownerRelation?.user;
+              const primaryDomain = store.storeDomains?.find((d) => d.isPrimary)?.domain;
 
+              return (
+                <div key={store.id} style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '0.5rem', marginBottom: '1rem' }}>
-                      <div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{store.name}</h2>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', fontFamily: 'monospace' }}>slug: {store.slug}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {store.logoUrl ? (
+                          <img src={store.logoUrl} alt={store.name} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'contain', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }} />
+                        ) : (
+                          <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: store.primaryColor || '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', color: '#fff', fontWeight: 700 }}>
+                            {store.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{store.name}</h3>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>slug: @{store.slug}</span>
+                        </div>
                       </div>
+
                       <button 
                         onClick={() => toggleStoreStatus(store.id, store.isActive)}
                         style={{ 
-                          padding: '0.25rem 0.6rem', 
-                          borderRadius: '9999px', 
                           border: 'none', 
+                          padding: '0.35rem 0.75rem', 
+                          borderRadius: '9999px', 
                           fontSize: '0.75rem', 
                           fontWeight: 700, 
                           cursor: 'pointer',
@@ -180,7 +248,7 @@ export default function SuperAdminDashboard() {
                       </button>
                     </div>
 
-                    <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                    <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.25rem' }} className="line-clamp-2">
                       {store.description || 'Tavsif kiritilmagan'}
                     </p>
 
@@ -192,9 +260,21 @@ export default function SuperAdminDashboard() {
                         <strong>{owner?.name || 'Tayinlanmagan'}</strong>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                        <span style={{ color: '#64748b' }}>Telefon raqami:</span>
+                        <span style={{ color: '#64748b' }}>Egasining telefoni:</span>
                         <strong>{owner?.phone || 'Kiritilmagan'}</strong>
                       </div>
+                      {store.phone && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <span style={{ color: '#64748b' }}>Do'kon telefoni:</span>
+                          <strong>{store.phone}</strong>
+                        </div>
+                      )}
+                      {primaryDomain && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <span style={{ color: '#64748b' }}>Shaxsiy Domen:</span>
+                          <strong>{primaryDomain}</strong>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: '#64748b' }}>Yaratilgan sana:</span>
                         <strong>{new Date(store.createdAt).toLocaleDateString('uz-UZ')}</strong>
@@ -204,7 +284,7 @@ export default function SuperAdminDashboard() {
 
                   <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
                     <Link href={`/store/${store.slug}`} target="_blank" style={{ flex: 1, textAlign: 'center', padding: '0.6rem 0', backgroundColor: '#f1f5f9', color: '#334155', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'none' }}>
-                      Ko'rish
+                      Do'konga kirish
                     </Link>
                     <button 
                       onClick={() => {
@@ -236,48 +316,113 @@ export default function SuperAdminDashboard() {
         {/* Modal */}
         {showModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '1rem', padding: '2rem', width: '100%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', position: 'relative' }}>
-              <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '1.25rem', padding: '2rem', width: '95%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)', position: 'relative' }}>
+              <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '1.75rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
               
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginTop: 0, marginBottom: '1.5rem' }}>Yangi do'kon qo'shish</h3>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: 0, marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                🏢 Yangi do'kon ochish va sozlash
+              </h3>
               
-              <form onSubmit={handleCreateStore}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>Do'kon nomi *</label>
-                  <input type="text" required value={name} onChange={(e) => {
-                    setName(e.target.value);
-                    if (!slug) {
-                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'));
-                    }
-                  }} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }} placeholder="Masalan: Bozor Market" />
-                </div>
-
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>Do'kon slugi (URL uchun) *</label>
-                  <input type="text" required value={slug} onChange={(e) => setSlug(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }} placeholder="bozor-market" />
-                </div>
-
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>Asosiy brend rangi (HEX) *</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: '40px', height: '40px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }} />
-                    <input type="text" required value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ flex: 1, padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }} />
+              <form onSubmit={handleCreateStore} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                
+                {/* Logo Upload Form Group */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon logotipi</label>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Preview logo" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'contain', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc' }} />
+                    ) : (
+                      <div style={{ width: '48px', height: '48px', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>No logo</div>
+                    )}
+                    <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="Rasm havolasi (URL)..." />
+                    <label style={{ padding: '0.5rem 1rem', backgroundColor: '#f1f5f9', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, border: '1px solid #cbd5e1' }}>
+                      Yuklash
+                      <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                    </label>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>Egasining telefon raqami (agar ro'yxatdan o'tgan bo'lsa)</label>
-                  <input type="text" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }} placeholder="+998901234567" />
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>Tizimda bu telefon raqam bilan foydalanuvchi mavjud bo'lishi lozim</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon nomi *</label>
+                    <input type="text" required value={name} onChange={(e) => {
+                      setName(e.target.value);
+                      if (!slug) {
+                        setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'));
+                      }
+                    }} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="Masalan: Bozor Market" />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon slugi (URL) *</label>
+                    <input type="text" required value={slug} onChange={(e) => setSlug(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="bozor-market" />
+                  </div>
                 </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>Do'kon tavsifi</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', resize: 'vertical' }} placeholder="Do'kon faoliyati haqida qisqacha..." />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Admin telefon raqami *</label>
+                    <input type="text" required value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="+998901234567" />
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>Yangi bo'lsa tizimda avtomatik profil yaratiladi (parol: admin123456)</span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Brend rangi (HEX) *</label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: '36px', height: '36px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }} />
+                      <input type="text" required value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} />
+                    </div>
+                  </div>
                 </div>
 
-                <button type="submit" disabled={submitting} style={{ width: '100%', padding: '0.75rem 0', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '0.5rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}>
-                  {submitting ? 'Yaratilmoqda...' : 'Yaratish'}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon telefon raqami</label>
+                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="+998712000000" />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Shaxsiy Domen (URL)</label>
+                    <input type="text" value={domain} onChange={(e) => setDomain(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="bozor-market.uz" />
+                  </div>
+                </div>
+
+                {/* Social links section */}
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', margin: '0 0 1rem 0' }}>🌐 Ijtimoiy tarmoq havolalari</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Telegram Link / Username</label>
+                      <input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="@username yoki t.me/link" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Instagram Link / Username</label>
+                      <input type="text" value={instagramUsername} onChange={(e) => setInstagramUsername(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="@username yoki instagram.com/link" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Facebook Havolasi (URL)</label>
+                      <input type="text" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="https://facebook.com/..." />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>YouTube Havolasi (URL)</label>
+                      <input type="text" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }} placeholder="https://youtube.com/..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>Do'kon tavsifi</label>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', resize: 'vertical' }} placeholder="Do'kon faoliyati haqida qisqacha..." />
+                </div>
+
+                <button type="submit" disabled={submitting} style={{ width: '100%', padding: '0.75rem 0', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '0.5rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                  {submitting ? 'Yaratilmoqda...' : '🚀 Do\'konni faollashtirish va yaratish'}
                 </button>
               </form>
             </div>
