@@ -2,56 +2,137 @@ require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // 1. Seed admin
+  // 1. Seed/Resolve default store
+  const storeSlug = 'bozor-market';
+  const store = await prisma.store.upsert({
+    where: { slug: storeSlug },
+    update: {
+      name: 'Bozor Market',
+      isActive: true,
+      primaryColor: '#10b981',
+    },
+    create: {
+      slug: storeSlug,
+      name: 'Bozor Market',
+      isActive: true,
+      primaryColor: '#10b981',
+    },
+  });
+  console.log('Default store resolved:', store);
+
+  // 2. Seed admin
   const phone = '+998917850090';
+  const passwordHash = bcrypt.hashSync('admin123456', 10);
   const admin = await prisma.user.upsert({
     where: { phone },
     update: {
-      role: 'ADMIN',
+      role: 'SUPER_ADMIN',
       name: 'Администратор',
+      passwordHash,
     },
     create: {
       phone,
       name: 'Администратор',
-      role: 'ADMIN',
+      role: 'SUPER_ADMIN',
+      passwordHash,
     },
   });
   console.log('Seed admin user created/updated:', admin);
 
-  // 2. Seed Categories
+  // 3. Link admin to default store
+  const storeUser = await prisma.storeUser.upsert({
+    where: {
+      storeId_userId: {
+        storeId: store.id,
+        userId: admin.id,
+      },
+    },
+    update: {
+      role: 'STORE_OWNER',
+    },
+    create: {
+      storeId: store.id,
+      userId: admin.id,
+      role: 'STORE_OWNER',
+    },
+  });
+  console.log('Linked admin to default store:', storeUser);
+
+  // 4. Seed Categories
   const catVeg = await prisma.category.upsert({
-    where: { slug: 'vegetables' },
+    where: {
+      storeId_slug: {
+        storeId: store.id,
+        slug: 'vegetables',
+      },
+    },
     update: {},
-    create: { name: 'Овощи и Фрукты', slug: 'vegetables', image: '🥦' },
+    create: {
+      name: 'Овощи и Фрукты',
+      slug: 'vegetables',
+      image: '🥦',
+      storeId: store.id,
+    },
   });
 
   const catDairy = await prisma.category.upsert({
-    where: { slug: 'dairy' },
+    where: {
+      storeId_slug: {
+        storeId: store.id,
+        slug: 'dairy',
+      },
+    },
     update: {},
-    create: { name: 'Молочные продукты', slug: 'dairy', image: '🥛' },
+    create: {
+      name: 'Молочные продукты',
+      slug: 'dairy',
+      image: '🥛',
+      storeId: store.id,
+    },
   });
 
   const catDrinks = await prisma.category.upsert({
-    where: { slug: 'drinks' },
+    where: {
+      storeId_slug: {
+        storeId: store.id,
+        slug: 'drinks',
+      },
+    },
     update: {},
-    create: { name: 'Напитки', slug: 'drinks', image: '🥤' },
+    create: {
+      name: 'Напитки',
+      slug: 'drinks',
+      image: '🥤',
+      storeId: store.id,
+    },
   });
 
   const catBakery = await prisma.category.upsert({
-    where: { slug: 'bakery' },
+    where: {
+      storeId_slug: {
+        storeId: store.id,
+        slug: 'bakery',
+      },
+    },
     update: {},
-    create: { name: 'Выпечка', slug: 'bakery', image: '🍞' },
+    create: {
+      name: 'Выпечка',
+      slug: 'bakery',
+      image: '🍞',
+      storeId: store.id,
+    },
   });
 
   console.log('Categories seeded.');
 
-  // 3. Seed Products
+  // 5. Seed Products
   const productsData = [
     {
       name: 'Помидоры красные',
@@ -65,6 +146,7 @@ async function main() {
       unit: 'кг',
       categoryId: catVeg.id,
       image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
     {
       name: 'Огурцы свежие',
@@ -78,9 +160,10 @@ async function main() {
       unit: 'кг',
       categoryId: catVeg.id,
       image: 'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
     {
-      name: 'Молоко 3.2% "Мусаффо"',
+      name: 'Молоко 3.2% "Мусафfo"',
       slug: 'milk-musaffo-32',
       barcode: '40003',
       nomenclatureCode: 'MILK_32',
@@ -91,6 +174,7 @@ async function main() {
       unit: 'л',
       categoryId: catDairy.id,
       image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
     {
       name: 'Сыр Чеддер',
@@ -104,6 +188,7 @@ async function main() {
       unit: 'кг',
       categoryId: catDairy.id,
       image: 'https://images.unsplash.com/photo-1486299267070-83823f5448dd?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
     {
       name: 'Coca-Cola 1.5L',
@@ -117,6 +202,7 @@ async function main() {
       unit: 'шт',
       categoryId: catDrinks.id,
       image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
     {
       name: 'Багет французский',
@@ -130,12 +216,18 @@ async function main() {
       unit: 'шт',
       categoryId: catBakery.id,
       image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop',
+      storeId: store.id,
     },
   ];
 
   for (const prod of productsData) {
     await prisma.product.upsert({
-      where: { slug: prod.slug },
+      where: {
+        storeId_slug: {
+          storeId: store.id,
+          slug: prod.slug,
+        },
+      },
       update: {
         price: prod.price,
         oldPrice: prod.oldPrice,
@@ -150,22 +242,33 @@ async function main() {
 
   console.log('Products seeded.');
 
-  // 4. Seed Integration Settings
-  const settingsCount = await prisma.integrationSettings.count();
-  if (settingsCount === 0) {
-    await prisma.integrationSettings.create({
-      data: {
-        integrationEnabled: false,
-        integrationMode: 'disabled',
-        autoUpdatePrices: true,
-        autoUpdateStock: true,
-        syncIntervalMinutes: 5,
-      },
-    });
-    console.log('Default Integration Settings seeded.');
-  }
+  // 6. Seed Integration Settings
+  const integrationSettings = await prisma.integrationSettings.upsert({
+    where: { storeId: store.id },
+    update: {},
+    create: {
+      storeId: store.id,
+      integrationEnabled: false,
+      integrationMode: 'disabled',
+      autoUpdatePrices: true,
+      autoUpdateStock: true,
+      syncIntervalMinutes: 5,
+    },
+  });
+  console.log('Integration Settings resolved:', integrationSettings);
 
-  // 5. Seed ExternalProducts
+  // 7. Seed SMSSettings
+  const smsSettings = await prisma.sMSSettings.upsert({
+    where: { storeId: store.id },
+    update: {},
+    create: {
+      storeId: store.id,
+      provider: 'mock',
+    },
+  });
+  console.log('SMS Settings resolved:', smsSettings);
+
+  // 8. Seed ExternalProducts
   const externalProductsData = [
     {
       barcode: '5449000000996',
@@ -175,6 +278,7 @@ async function main() {
       stock: 25,
       unit: 'шт',
       categoryName: 'Напитки',
+      storeId: store.id,
     },
     {
       barcode: '4780012345678',
@@ -184,6 +288,7 @@ async function main() {
       stock: 40,
       unit: 'шт',
       categoryName: 'Молочные продукты',
+      storeId: store.id,
     },
     {
       barcode: '4780098765432',
@@ -193,12 +298,18 @@ async function main() {
       stock: 60,
       unit: 'шт',
       categoryName: 'Хлеб',
+      storeId: store.id,
     },
   ];
 
   for (const ext of externalProductsData) {
     await prisma.externalProduct.upsert({
-      where: { barcode: ext.barcode },
+      where: {
+        storeId_barcode: {
+          storeId: store.id,
+          barcode: ext.barcode,
+        },
+      },
       update: {
         price: ext.price,
         stock: ext.stock,

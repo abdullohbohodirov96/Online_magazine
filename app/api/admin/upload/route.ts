@@ -6,7 +6,7 @@ import { put } from '@vercel/blob';
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== 'ADMIN') {
+    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'STORE_OWNER' && user.role !== 'STORE_ADMIN' && user.role !== 'ADMIN')) {
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
 

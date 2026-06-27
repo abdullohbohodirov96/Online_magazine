@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { testConnection } from '@/lib/integrations/integration-service';
-
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
+import { verifyAdminAccess } from '@/lib/store/security';
 
 export async function POST(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -34,10 +27,12 @@ export async function POST(request: Request) {
     const result = await testConnection(testSettings);
 
     // Save connection status to DB
-    const settings = await prisma.integrationSettings.findFirst();
+    const settings = await prisma.integrationSettings.findUnique({
+      where: { storeId: store.id },
+    });
     if (settings) {
       await prisma.integrationSettings.update({
-        where: { id: settings.id },
+        where: { storeId: store.id },
         data: {
           isConnected: result.success,
           lastConnectionCheckAt: new Date(),
@@ -49,7 +44,7 @@ export async function POST(request: Request) {
       data: {
         type: 'TEST_CONNECTION',
         status: result.success ? 'SUCCESS' : 'ERROR',
-        message: `Проверка соединения с ${url}: ${result.message}`,
+        message: `[${store.name}] Проверка соединения с ${url}: ${result.message}`,
       },
     });
 

@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const orders = await prisma.order.findMany({
+      where: { storeId: store.id },
       include: {
         items: true,
       },
@@ -31,7 +25,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -42,6 +37,14 @@ export async function PUT(request: Request) {
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });
+    }
+
+    // Verify order belongs to store
+    const existing = await prisma.order.findFirst({
+      where: { id: orderId, storeId: store.id }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Заказ не найден' }, { status: 404 });
     }
 
     const order = await prisma.order.update({

@@ -1,28 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function POST() {
-  if (!(await checkAdmin())) {
+export async function POST(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
-    await prisma.externalProduct.deleteMany();
+    await prisma.externalProduct.deleteMany({
+      where: { storeId: store.id },
+    });
 
     await prisma.integrationLog.create({
       data: {
         type: 'CLEAR_EXTERNAL_PRODUCTS',
         status: 'SUCCESS',
-        message: 'Все товары внешней базы данных (ExternalProduct) были удалены администратором.',
+        message: `[${store.name}] Все товары внешней базы данных (ExternalProduct) были удалены администратором.`,
       },
     });
 

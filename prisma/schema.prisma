@@ -7,6 +7,9 @@ generator client {
 }
 
 enum Role {
+  SUPER_ADMIN
+  STORE_OWNER
+  STORE_ADMIN
   CUSTOMER
   ADMIN
 }
@@ -21,16 +24,17 @@ enum OrderStatus {
 }
 
 model User {
-
-  id        String     @id @default(cuid())
-  phone     String     @unique
-  name      String?
-  role      Role       @default(CUSTOMER)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  cartItems CartItem[]
-  orders    Order[]
+  id           String      @id @default(cuid())
+  phone        String      @unique
+  name         String?
+  role         Role        @default(CUSTOMER)
+  passwordHash String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  cartItems  CartItem[]
+  orders     Order[]
   telegramUser TelegramUser?
+  storeUsers StoreUser[]
 }
 
 model OtpCode {
@@ -40,12 +44,90 @@ model OtpCode {
   expiresAt DateTime
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
+  storeId   String?
+}
+
+model Store {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  legalName         String?
+  description       String?
+  logoUrl           String?
+  faviconUrl        String?
+  bannerUrl         String?
+  primaryColor      String   @default("#10b981")
+  secondaryColor    String?
+  accentColor       String?
+  textColor         String?
+  backgroundColor   String?
+  phone             String?
+  supportPhone      String?
+  telegramUsername  String?
+  instagramUsername String?
+  email             String?
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  yandexMapLink     String?
+  currency          String   @default("UZS")
+  language          String   @default("ru")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  products            Product[]
+  categories          Category[]
+  orders              Order[]
+  externalProducts    ExternalProduct[]
+  integrationSettings IntegrationSettings?
+  telegramSettings    TelegramSettings?
+  smsSettings         SMSSettings?
+  storeUsers          StoreUser[]
+  storeDomains        StoreDomain[]
+  cartItems           CartItem[]
+  telegramUsers       TelegramUser[]
+}
+
+model StoreDomain {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  domain    String   @unique
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoreUser {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // STORE_OWNER, STORE_ADMIN
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, userId])
+}
+
+model SMSSettings {
+  id            String   @id @default(cuid())
+  storeId       String   @unique
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  provider      String   @default("mock")
+  eskizEmail    String?
+  eskizPassword String?
+  eskizFrom     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Category {
   id        String     @id @default(cuid())
   name      String
-  slug      String     @unique
+  slug      String
   image     String?
   parentId  String?
   isActive  Boolean    @default(true)
@@ -54,33 +136,44 @@ model Category {
   parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
   children  Category[] @relation("CategoryToCategory")
   products  Product[]
+
+  storeId   String
+  store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, slug])
 }
 
 model Product {
-  id               String      @id @default(cuid())
-  name             String
-  slug             String      @unique
-  barcode          String?     @unique
-  nomenclatureCode String?     @unique
-  description      String?
-  price            Float
-  oldPrice         Float?
-  stock            Float       @default(0)
-  unit             String      @default("шт") // шт, кг, л, упаковка
-  image            String?
-  categoryId       String?
-  category         Category?   @relation(fields: [categoryId], references: [id])
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  cartItems        CartItem[]
-  orderItems       OrderItem[]
+  id                String      @id @default(cuid())
+  name              String
+  slug              String
+  barcode           String?
+  nomenclatureCode  String?
+  description       String?
+  price             Float
+  oldPrice          Float?
+  stock             Float       @default(0)
+  unit              String      @default("шт")
+  image             String?
+  categoryId        String?
+  category          Category?   @relation(fields: [categoryId], references: [id])
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
   
-  // New fields for integration
   externalProductId String?
-  source            String     @default("manual") // manual, integration
-  syncPrice         Boolean    @default(true)
-  syncStock         Boolean    @default(true)
+  source            String      @default("manual")
+  syncPrice         Boolean     @default(true)
+  syncStock         Boolean     @default(true)
+
+  storeId           String
+  store             Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, slug])
+  @@unique([storeId, barcode])
+  @@unique([storeId, nomenclatureCode])
 }
 
 model CartItem {
@@ -93,34 +186,39 @@ model CartItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
   @@unique([userId, productId])
 }
 
 model Order {
-
-  id          String      @id @default(cuid())
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id])
-  customerName String
-  phone       String
-  address     String
-  comment     String?
-  totalAmount Float
-  status      OrderStatus @default(NEW)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  items       OrderItem[]
-  telegramUserId String?
-  source         String      @default("web")
-  telegramChatId String?
-  addressComment   String?
-  latitude         Float?
-  longitude        Float?
-  yandexAddress    String?
-  deliveryEntrance String?
-  deliveryFloor    String?
+  id                String      @id @default(cuid())
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id])
+  customerName      String
+  phone             String
+  address           String
+  comment           String?
+  totalAmount       Float
+  status            OrderStatus @default(NEW)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  items             OrderItem[]
+  telegramUserId    String?
+  source            String      @default("web")
+  telegramChatId    String?
+  addressComment    String?
+  latitude          Float?
+  longitude         Float?
+  yandexAddress     String?
+  deliveryEntrance  String?
+  deliveryFloor     String?
   deliveryApartment String?
-  deliveryIntercom String?
+  deliveryIntercom  String?
+
+  storeId           String
+  store             Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
 
 model OrderItem {
@@ -146,18 +244,17 @@ model IntegrationLog {
 }
 
 model IntegrationSettings {
-
-  id                  String    @id @default(cuid())
-  integrationEnabled  Boolean   @default(false)
-  integrationMode     String    @default("disabled") // disabled, csv_import, external_api
-  integrationApiUrl   String?
-  integrationApiKey   String?
-  autoUpdatePrices    Boolean   @default(true)
-  autoUpdateStock     Boolean   @default(true)
-  syncIntervalMinutes Int       @default(5)
-  lastSyncAt          DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  integrationEnabled    Boolean   @default(false)
+  integrationMode       String    @default("disabled")
+  integrationApiUrl     String?
+  integrationApiKey     String?
+  autoUpdatePrices      Boolean   @default(true)
+  autoUpdateStock       Boolean   @default(true)
+  syncIntervalMinutes   Int       @default(5)
+  lastSyncAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
   providerName          String?
   providerType          String    @default("manual_json")
   authType              String    @default("none")
@@ -171,12 +268,15 @@ model IntegrationSettings {
   lastConnectionCheckAt DateTime?
   syncStatus            String?
   syncErrorMessage      String?
+
+  storeId               String    @unique
+  store                 Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
 
 model ExternalProduct {
   id               String   @id @default(cuid())
-  barcode          String?  @unique
-  nomenclatureCode String?  @unique
+  barcode          String?
+  nomenclatureCode String?
   name             String
   price            Float
   stock            Float
@@ -186,8 +286,13 @@ model ExternalProduct {
   lastSyncedAt     DateTime @default(now())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-}
 
+  storeId          String
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, barcode])
+  @@unique([storeId, nomenclatureCode])
+}
 
 model TelegramUser {
   id         String   @id @default(cuid())
@@ -201,6 +306,9 @@ model TelegramUser {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storeId    String?
+  store      Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
 }
 
 model TelegramSettings {
@@ -212,4 +320,7 @@ model TelegramSettings {
   miniAppUrl          String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  storeId             String   @unique
+  store               Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }

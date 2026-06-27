@@ -1,27 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { sendTelegramMessage, getTelegramSettings } from '@/lib/telegram/telegram-service';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function POST() {
-  if (!(await checkAdmin())) {
+export async function POST(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
-    const settings = await getTelegramSettings();
+    const settings = await getTelegramSettings(store.id);
     if (!settings.adminChatId) {
       return NextResponse.json({ error: 'ID чата администратора не настроен' }, { status: 400 });
     }
 
-    const testText = '🔔 <b>Тестовое сообщение от BozorMarket (Тестовый Заказ #TEST)</b>\n\n' +
+    const testText = `🔔 <b>Тестовое сообщение от ${store.name} (Тестовый Заказ #TEST)</b>\n\n` +
       'Ваши настройки уведомлений Telegram успешно проверены и работают.\n\n' +
       'Ниже представлены тестовые кнопки для проверки изменения статуса:';
 
@@ -38,7 +31,7 @@ export async function POST() {
       ]
     };
 
-    const success = await sendTelegramMessage(settings.adminChatId, testText, replyMarkup);
+    const success = await sendTelegramMessage(settings.adminChatId, testText, replyMarkup, store.id);
 
     if (success) {
       return NextResponse.json({ success: true, message: 'Тестовое сообщение успешно отправлено!' });

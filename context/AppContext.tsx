@@ -15,7 +15,7 @@ export interface User {
   id: string;
   phone: string;
   name: string | null;
-  role: 'CUSTOMER' | 'ADMIN';
+  role: 'SUPER_ADMIN' | 'STORE_OWNER' | 'STORE_ADMIN' | 'CUSTOMER' | 'ADMIN';
 }
 
 export interface Product {
@@ -43,6 +43,8 @@ export interface CartItem {
 }
 
 interface AppContextType {
+  store: any;
+  fetchStore: () => Promise<void>;
   user: User | null;
   loadingUser: boolean;
   cart: CartItem[];
@@ -63,7 +65,40 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const getStoreSlug = () => {
+    if (typeof window === 'undefined') return '';
+    const parts = window.location.pathname.split('/');
+    if (parts[1] === 'store' || parts[1] === 'miniapp') {
+      return parts[2] || '';
+    }
+    return '';
+  };
+
+  const storeFetch = async (url: string, init?: RequestInit) => {
+    const slug = getStoreSlug();
+    const headers = new Headers(init?.headers);
+    if (slug) {
+      headers.set('x-store-slug', slug);
+    }
+    return fetch(url, {
+      ...init,
+      headers
+    });
+  };
+  const [store, setStore] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
+
+  const fetchStore = async () => {
+    try {
+      const res = await storeFetch('/api/store');
+      if (res.ok) {
+        const data = await res.json();
+        setStore(data.store);
+      }
+    } catch (e) {
+      console.error("Error fetching store:", e);
+    }
+  };
   const [loadingUser, setLoadingUser] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
@@ -71,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await storeFetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -89,7 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (user) {
       setLoadingCart(true);
       try {
-        const res = await fetch('/api/cart');
+        const res = await storeFetch('/api/cart');
         if (res.ok) {
           const data = await res.json();
           const items = data.cartItems.map((item: any) => ({
@@ -120,6 +155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    fetchStore();
     fetchUser();
   }, []);
 
@@ -133,7 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const items = JSON.parse(localCart) as CartItem[];
         for (const item of items) {
-          await fetch('/api/cart', {
+          await storeFetch('/api/cart', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ productId: item.productId, quantity: item.quantity }),
@@ -164,7 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (user) {
       try {
-        const res = await fetch('/api/cart', {
+        const res = await storeFetch('/api/cart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId: product.id, quantity: newQty }),
@@ -200,7 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (user) {
       try {
-        const res = await fetch('/api/cart', {
+        const res = await storeFetch('/api/cart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId, quantity }),
@@ -223,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeFromCart = async (productId: string) => {
     if (user) {
       try {
-        const res = await fetch(`/api/cart?productId=${productId}`, {
+        const res = await storeFetch(`/api/cart?productId=${productId}`, {
           method: 'DELETE',
         });
         if (res.ok) {
@@ -242,7 +278,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearCart = async () => {
     if (user) {
       try {
-        const res = await fetch('/api/cart', {
+        const res = await storeFetch('/api/cart', {
           method: 'DELETE',
         });
         if (res.ok) {
@@ -259,7 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await storeFetch('/api/auth/logout', { method: 'POST' });
       setUser(null);
       setCart([]);
       localStorage.removeItem('guest_cart');
@@ -274,6 +310,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        store,
+        fetchStore,
         user,
         loadingUser,
         cart,

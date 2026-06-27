@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const products = await prisma.product.findMany({
+      where: { storeId: store.id },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
     const categories = await prisma.category.findMany({
+      where: { storeId: store.id },
       orderBy: { name: 'asc' },
     });
 
@@ -32,7 +27,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -53,6 +49,7 @@ export async function POST(request: Request) {
 
     const product = await prisma.product.create({
       data: {
+        storeId: store.id,
         name,
         slug,
         barcode: barcode || null,
@@ -83,7 +80,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -95,6 +93,14 @@ export async function PUT(request: Request) {
 
     if (!id || !name || price === undefined || stock === undefined || !unit) {
       return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });
+    }
+
+    // Verify product belongs to store
+    const existing = await prisma.product.findFirst({
+      where: { id, storeId: store.id }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Товар не найден' }, { status: 404 });
     }
 
     const product = await prisma.product.update({
@@ -129,7 +135,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -139,6 +146,14 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: 'ID товара обязателен' }, { status: 400 });
+    }
+
+    // Verify product belongs to store
+    const existing = await prisma.product.findFirst({
+      where: { id, storeId: store.id }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Товар не найден' }, { status: 404 });
     }
 
     await prisma.product.delete({

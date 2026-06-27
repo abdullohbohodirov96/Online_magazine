@@ -3,9 +3,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { sendOrderNotification, sendTelegramMessage } from '@/lib/telegram/telegram-service';
+import { resolveStoreFromRequest } from '@/lib/store/resolve-store';
 
 export async function POST(request: Request) {
   try {
+    const store = await resolveStoreFromRequest(request);
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Пожалуйста, авторизуйтесь для оформления заказа' }, { status: 401 });
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const cartItems = await prisma.cartItem.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, storeId: store.id },
       include: { product: true },
     });
 
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
     const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newOrder = await tx.order.create({
         data: {
+          storeId: store.id,
           userId: user.id,
           customerName,
           phone,
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
       }
 
       await tx.cartItem.deleteMany({
-        where: { userId: user.id },
+        where: { userId: user.id, storeId: store.id },
       });
 
       return newOrder;
@@ -132,15 +135,16 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const store = await resolveStoreFromRequest(request);
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
     }
 
     const orders = await prisma.order.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, storeId: store.id },
       include: {
         items: true,
       },

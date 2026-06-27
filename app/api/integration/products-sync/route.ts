@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { resolveStoreFromRequest } from '@/lib/store/resolve-store';
 
 export async function POST(request: Request) {
+  const store = await resolveStoreFromRequest(request);
   const secretKey = process.env.INTEGRATION_SECRET_KEY || 'grocery-integration-key-xyz-123';
   const receivedKey = request.headers.get('x-integration-key');
 
@@ -10,7 +12,7 @@ export async function POST(request: Request) {
       data: {
         type: 'PRODUCTS_SYNC',
         status: 'ERROR',
-        message: 'Несанкционированный доступ: неверный ключ x-integration-key',
+        message: `[${store.name}] Несанкционированный доступ: неверный ключ x-integration-key`,
       },
     });
     return NextResponse.json({ error: 'Неавторизованный доступ' }, { status: 401 });
@@ -42,12 +44,18 @@ export async function POST(request: Request) {
           .replace(/^-|-$/g, '');
 
         let category = await prisma.category.findUnique({
-          where: { slug: categorySlug },
+          where: {
+            storeId_slug: {
+              storeId: store.id,
+              slug: categorySlug,
+            },
+          },
         });
 
         if (!category) {
           category = await prisma.category.create({
             data: {
+              storeId: store.id,
               name: categoryName,
               slug: categorySlug,
               isActive: true,
@@ -62,13 +70,23 @@ export async function POST(request: Request) {
 
       if (barcode) {
         existingProduct = await prisma.product.findUnique({
-          where: { barcode },
+          where: {
+            storeId_barcode: {
+              storeId: store.id,
+              barcode,
+            },
+          },
         });
       }
 
       if (!existingProduct && nomenclatureCode) {
         existingProduct = await prisma.product.findUnique({
-          where: { nomenclatureCode },
+          where: {
+            storeId_nomenclatureCode: {
+              storeId: store.id,
+              nomenclatureCode,
+            },
+          },
         });
       }
 
@@ -92,6 +110,7 @@ export async function POST(request: Request) {
 
         await prisma.product.create({
           data: {
+            storeId: store.id,
             name,
             slug: productSlug,
             barcode: barcode || null,
@@ -113,7 +132,7 @@ export async function POST(request: Request) {
       data: {
         type: 'PRODUCTS_SYNC',
         status: 'SUCCESS',
-        message: logMessage,
+        message: `[${store.name}] ${logMessage}`,
       },
     });
 
@@ -126,7 +145,7 @@ export async function POST(request: Request) {
       data: {
         type: 'PRODUCTS_SYNC',
         status: 'ERROR',
-        message: `Ошибка синхронизации: ${errMessage}`,
+        message: `[${store.name}] Ошибка синхронизации: ${errMessage}`,
       },
     });
 

@@ -1,23 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { fetchExternalProducts } from '@/lib/integrations/integration-service';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
-    const settings = await prisma.integrationSettings.findFirst();
+    const settings = await prisma.integrationSettings.findUnique({
+      where: { storeId: store.id },
+    });
     if (!settings) {
       return NextResponse.json({ error: 'Настройки интеграции не найдены' }, { status: 404 });
     }

@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const categories = await prisma.category.findMany({
+      where: { storeId: store.id },
       include: { parent: true, children: true },
       orderBy: { name: 'asc' },
     });
@@ -28,7 +22,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -46,6 +41,7 @@ export async function POST(request: Request) {
 
     const category = await prisma.category.create({
       data: {
+        storeId: store.id,
         name,
         slug: generatedSlug,
         image: image || null,

@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized } = await verifyAdminAccess(request);
+  if (!authorized) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 

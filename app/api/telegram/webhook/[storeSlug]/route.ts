@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getStoreBySlug } from '@/lib/store/resolve-store';
 import { getTelegramSettings, sendTelegramMessage, editTelegramMessage } from '@/lib/telegram/telegram-service';
 
-export async function POST(request: Request) {
+export async function POST(request: Request, { params }: { params: Promise<{ storeSlug: string }> }) {
   try {
-    const settings = await getTelegramSettings();
+    const { storeSlug } = await params;
+    const store = await getStoreBySlug(storeSlug);
+    if (!store) {
+      return NextResponse.json({ error: 'Магазин не найден' }, { status: 404 });
+    }
+
+    const settings = await getTelegramSettings(store.id);
     if (!settings.botToken) {
       return NextResponse.json({ error: 'Бот не настроен' }, { status: 500 });
     }
@@ -18,12 +25,10 @@ export async function POST(request: Request) {
         console.warn('Webhook security warning: invalid secret token received:', secretToken);
         return NextResponse.json({ error: 'Доступ запрещен: неверный secret token' }, { status: 403 });
       }
-    } else {
-      console.warn('Webhook security warning: TELEGRAM_WEBHOOK_SECRET is not set in env.');
     }
 
     const payload = await request.json();
-    console.log("TELEGRAM WEBHOOK UPDATE", JSON.stringify(payload, null, 2));
+    console.log(`TELEGRAM WEBHOOK UPDATE FOR STORE ${store.name}:`, JSON.stringify(payload, null, 2));
 
     // 1. Handle Inline Button Callbacks (callback_query)
     if (payload.callback_query) {
@@ -60,7 +65,7 @@ export async function POST(request: Request) {
               settings.botToken
             );
             
-            const text = '🔔 <b>Тестовое сообщение от BozorMarket (Тестовый Заказ #TEST)</b>\n\n' +
+            const text = `🔔 <b>Тестовое сообщение от ${store.name} (Тестовый Заказ #TEST)</b>\n\n` +
               'Ваши настройки уведомлений Telegram успешно проверены и работают.\n\n' +
               `<b>[ТЕСТ] Статус изменен на: ${statusNames[newStatus] || newStatus}</b>`;
               
@@ -77,7 +82,7 @@ export async function POST(request: Request) {
               ]
             };
             
-            await editTelegramMessage(String(chatId), messageId, text, replyMarkup);
+            await editTelegramMessage(String(chatId), messageId, text, replyMarkup, store.id);
             return NextResponse.json({ success: true });
           }
 
@@ -86,7 +91,7 @@ export async function POST(request: Request) {
             include: { items: true },
           });
 
-          if (!order) {
+          if (!order || order.storeId !== store.id) {
             await answerCallback(callbackQuery.id, 'Заказ не найден', settings.botToken);
             return NextResponse.json({ success: true });
           }
@@ -155,13 +160,13 @@ export async function POST(request: Request) {
             ]
           };
 
-          await editTelegramMessage(String(chatId), messageId, text, replyMarkup);
+          await editTelegramMessage(String(chatId), messageId, text, replyMarkup, store.id);
 
           // If the order came from a specific telegram user (checkout from telegram), notify them too!
           if (updatedOrder.telegramChatId) {
             const customerText = `🔔 <b>Статус вашего заказа #${updatedOrder.id.slice(-6).toUpperCase()} изменен!</b>\n\n` +
-              `Новый статус: <b>${statusNames[updatedOrder.status] || updatedOrder.status}</b>`;
-            await sendTelegramMessage(updatedOrder.telegramChatId, customerText);
+              `Новый status: <b>${statusNames[updatedOrder.status] || updatedOrder.status}</b>`;
+            await sendTelegramMessage(updatedOrder.telegramChatId, customerText, undefined, store.id);
           }
 
         } catch (e: any) {
@@ -180,23 +185,33 @@ export async function POST(request: Request) {
       const telegramId = String(message.from?.id);
 
       if (text.startsWith('/start')) {
-        const welcomeText = `<b>Добро пожаловать в BozorMarket!</b>\n\nУ нас вы можете заказать самые свежие продукты питания с быстрой доставкой на дом.`;
+        const welcomeText = `<b>Добро пожаловать в ${store.name}!</b>\n\nУ нас вы можете заказать самые свежие продукты питания с быстрой доставкой на дом.`;
         const replyMarkup = {
           inline_keyboard: [
             [
-              { text: '🛒 Открыть магазин', web_app: { url: settings.miniAppUrl } }
+              { text: '🛒 Открыть магазин', web_app: { url: `${settings.miniAppUrl}/miniapp/${store.slug}` } }
             ]
           ]
         };
-        await sendTelegramMessage(chatId, welcomeText, replyMarkup);
+        await sendTelegramMessage(chatId, welcomeText, replyMarkup, store.id);
       } else if (text.startsWith('/orders')) {
         const tgUser = await prisma.telegramUser.findUnique({
           where: { telegramId },
-          include: { user: { include: { orders: { orderBy: { createdAt: 'desc' }, take: 5 } } } }
+          include: { 
+            user: { 
+              include: { 
+                orders: { 
+                  where: { storeId: store.id },
+                  orderBy: { createdAt: 'desc' }, 
+                  take: 5 
+                } 
+              } 
+            } 
+          }
         });
 
         if (tgUser && tgUser.user && tgUser.user.orders.length > 0) {
-          let ordersText = `<b>Ваши последние заказы:</b>\n\n`;
+          let ordersText = `<b>Ваши последние заказы в ${store.name}:</b>\n\n`;
           tgUser.user.orders.forEach((o, i) => {
             const date = new Date(o.createdAt).toLocaleDateString('ru-RU');
             const statusNames: Record<string, string> = {
@@ -207,31 +222,28 @@ export async function POST(request: Request) {
               COMPLETED: 'Выполнен 🎉',
               CANCELLED: 'Отменен ❌',
             };
-            ordersText += `${i + 1}. Заказ <b>#${o.id.slice(-6).toUpperCase()}</b> от dots ${date}\n` +
+            ordersText += `${i + 1}. Заказ <b>#${o.id.slice(-6).toUpperCase()}</b> от ${date}\n` +
               `   Сумма: ${o.totalAmount.toLocaleString('ru-RU')} сум\n` +
               `   Статус: ${statusNames[o.status] || o.status}\n\n`;
-            // remove dots
-            ordersText = ordersText.replace('\n\n', '').replace('', ' ');
-            ordersText += '\n';
           });
-          await sendTelegramMessage(chatId, ordersText);
+          await sendTelegramMessage(chatId, ordersText, undefined, store.id);
         } else {
           const noOrdersText = 'У вас пока нет активных заказов или ваш профиль не привязан. Откройте магазин и оформите свой первый заказ!';
           const replyMarkup = {
             inline_keyboard: [
               [
-                { text: '🛒 Перейти в магазин', web_app: { url: settings.miniAppUrl } }
+                { text: '🛒 Перейти в магазин', web_app: { url: `${settings.miniAppUrl}/miniapp/${store.slug}` } }
               ]
             ]
           };
-          await sendTelegramMessage(chatId, noOrdersText, replyMarkup);
+          await sendTelegramMessage(chatId, noOrdersText, replyMarkup, store.id);
         }
       } else if (text.startsWith('/help')) {
         const helpText = `<b>Доступные команды:</b>\n\n` +
           `/start — открыть главное меню и запустить магазин\n` +
           `/orders — посмотреть историю ваших заказов\n` +
           `/help — получить справку по командам`;
-        await sendTelegramMessage(chatId, helpText);
+        await sendTelegramMessage(chatId, helpText, undefined, store.id);
       }
     }
 

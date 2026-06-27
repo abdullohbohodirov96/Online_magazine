@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
+import { verifyAdminAccess } from '@/lib/store/security';
 
 export async function GET(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -23,7 +16,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const settings = await prisma.integrationSettings.findFirst();
+    const settings = await prisma.integrationSettings.findUnique({
+      where: { storeId: store.id },
+    });
     
     if (!settings || !settings.integrationEnabled) {
       return NextResponse.json({ 
@@ -34,6 +29,7 @@ export async function GET(request: Request) {
 
     const externalProducts = await prisma.externalProduct.findMany({
       where: {
+        storeId: store.id,
         OR: [
           { barcode: query },
           { nomenclatureCode: query },
@@ -76,7 +72,7 @@ export async function GET(request: Request) {
               data: {
                 type: 'EXTERNAL_API_LOOKUP',
                 status: 'SUCCESS',
-                message: `Найден товар во внешнем API по запросу "${query}"`,
+                message: `[${store.name}] Найден товар во внешнем API по запросу "${query}"`,
               },
             });
             
@@ -101,7 +97,7 @@ export async function GET(request: Request) {
           data: {
             type: 'EXTERNAL_API_LOOKUP',
             status: 'ERROR',
-            message: `Не удалось связаться с внешним API по запросу "${query}": ${err.message || err}`,
+            message: `[${store.name}] Не удалось связаться с внешним API по запросу "${query}": ${err.message || err}`,
           },
         });
       }

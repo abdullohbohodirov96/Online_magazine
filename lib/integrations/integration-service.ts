@@ -1,6 +1,7 @@
 import { prisma } from '../db';
 
 export interface IntegrationSettings {
+  storeId: string;
   integrationEnabled: boolean;
   integrationMode: string;
   integrationApiUrl: string | null;
@@ -204,13 +205,23 @@ export async function syncProducts(settings: IntegrationSettings, rawProducts?: 
 
       if (norm.barcode) {
         externalProduct = await prisma.externalProduct.findUnique({
-          where: { barcode: norm.barcode },
+          where: {
+            storeId_barcode: {
+              storeId: settings.storeId,
+              barcode: norm.barcode,
+            },
+          },
         });
       }
 
       if (!externalProduct && norm.nomenclatureCode) {
         externalProduct = await prisma.externalProduct.findUnique({
-          where: { nomenclatureCode: norm.nomenclatureCode },
+          where: {
+            storeId_nomenclatureCode: {
+              storeId: settings.storeId,
+              nomenclatureCode: norm.nomenclatureCode,
+            },
+          },
         });
       }
 
@@ -231,6 +242,7 @@ export async function syncProducts(settings: IntegrationSettings, rawProducts?: 
       } else {
         externalProduct = await prisma.externalProduct.create({
           data: {
+            storeId: settings.storeId,
             barcode: norm.barcode,
             nomenclatureCode: norm.nomenclatureCode,
             name: norm.name,
@@ -248,6 +260,7 @@ export async function syncProducts(settings: IntegrationSettings, rawProducts?: 
       // Link products
       const linkedProducts = await prisma.product.findMany({
         where: {
+          storeId: settings.storeId,
           OR: [
             { externalProductId: externalProduct.id },
             {
@@ -291,7 +304,7 @@ export async function syncProducts(settings: IntegrationSettings, rawProducts?: 
       data: {
         type: 'EXTERNAL_PRODUCTS_SYNC',
         status: 'SUCCESS',
-        message,
+        message: `[StoreId: ${settings.storeId}] ` + message,
       },
     });
 
@@ -308,7 +321,7 @@ export async function syncProducts(settings: IntegrationSettings, rawProducts?: 
       data: {
         type: 'EXTERNAL_PRODUCTS_SYNC',
         status: 'ERROR',
-        message: `Ошибка: ${errMessage}`,
+        message: `[StoreId: ${settings.storeId}] Ошибка: ${errMessage}`,
       },
     });
     throw error;

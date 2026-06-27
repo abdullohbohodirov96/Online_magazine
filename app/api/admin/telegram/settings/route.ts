@@ -1,25 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/store/security';
 
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
-
-export async function GET() {
-  if (!(await checkAdmin())) {
+export async function GET(request: Request) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
-    let settings = await prisma.telegramSettings.findFirst();
+    let settings = await prisma.telegramSettings.findUnique({
+      where: { storeId: store.id },
+    });
     if (!settings) {
       settings = await prisma.telegramSettings.create({
         data: {
+          storeId: store.id,
           botToken: null,
           adminChatId: null,
           notificationsEnabled: true,
@@ -53,13 +49,16 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const data = await request.json();
-    let settings = await prisma.telegramSettings.findFirst();
+    let settings = await prisma.telegramSettings.findUnique({
+      where: { storeId: store.id },
+    });
 
     let updatedToken = data.botToken;
     // If token is masked, do not update it
@@ -77,11 +76,14 @@ export async function PUT(request: Request) {
 
     if (!settings) {
       settings = await prisma.telegramSettings.create({
-        data: payload,
+        data: {
+          ...payload,
+          storeId: store.id,
+        },
       });
     } else {
       settings = await prisma.telegramSettings.update({
-        where: { id: settings.id },
+        where: { storeId: store.id },
         data: payload,
       });
     }

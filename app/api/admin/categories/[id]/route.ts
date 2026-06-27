@@ -1,24 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-async function checkAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
-    return false;
-  }
-  return true;
-}
+import { verifyAdminAccess } from '@/lib/store/security';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const { id } = await params;
-    const category = await prisma.category.findUnique({
-      where: { id },
+    const category = await prisma.category.findFirst({
+      where: { id, storeId: store.id },
       include: { parent: true, children: true },
     });
 
@@ -34,7 +27,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
@@ -48,6 +42,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     if (parentId === id) {
       return NextResponse.json({ error: 'Категория не может быть своим собственным родителем' }, { status: 400 });
+    }
+
+    // Verify category belongs to store
+    const existing = await prisma.category.findFirst({
+      where: { id, storeId: store.id }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Категория не найдена' }, { status: 404 });
     }
 
     const generatedSlug = slug || name.toLowerCase()
@@ -77,15 +79,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await checkAdmin())) {
+  const { authorized, store } = await verifyAdminAccess(request);
+  if (!authorized || !store) {
     return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
   }
 
   try {
     const { id } = await params;
 
+    // Verify category belongs to store
+    const existing = await prisma.category.findFirst({
+      where: { id, storeId: store.id }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Категория не найдена' }, { status: 404 });
+    }
+
     const productCount = await prisma.product.count({
-      where: { categoryId: id },
+      where: { categoryId: id, storeId: store.id },
     });
 
     if (productCount > 0) {
@@ -93,7 +104,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     const childCount = await prisma.category.count({
-      where: { parentId: id },
+      where: { parentId: id, storeId: store.id },
     });
 
     if (childCount > 0) {

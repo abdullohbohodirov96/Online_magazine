@@ -1,8 +1,26 @@
 import { prisma } from '../db';
 import crypto from 'crypto';
 
-export async function getTelegramSettings() {
-  const dbSettings = await prisma.telegramSettings.findFirst();
+export async function getTelegramSettings(storeId?: string) {
+  let dbSettings = null;
+  if (storeId) {
+    dbSettings = await prisma.telegramSettings.findUnique({
+      where: { storeId },
+    });
+  } else {
+    // Fallback: try default store
+    const store = await prisma.store.findUnique({
+      where: { slug: 'bozor-market' },
+    });
+    if (store) {
+      dbSettings = await prisma.telegramSettings.findUnique({
+        where: { storeId: store.id },
+      });
+    } else {
+      dbSettings = await prisma.telegramSettings.findFirst();
+    }
+  }
+
   return {
     botToken: process.env.TELEGRAM_BOT_TOKEN || dbSettings?.botToken || '',
     adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || dbSettings?.adminChatId || '',
@@ -12,8 +30,8 @@ export async function getTelegramSettings() {
   };
 }
 
-export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any): Promise<boolean> {
-  const settings = await getTelegramSettings();
+export async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any, storeId?: string): Promise<boolean> {
+  const settings = await getTelegramSettings(storeId);
   if (!settings.botToken || !settings.notificationsEnabled) {
     return false;
   }
@@ -46,8 +64,8 @@ export async function sendTelegramMessage(chatId: string, text: string, replyMar
   }
 }
 
-export async function editTelegramMessage(chatId: string, messageId: number, text: string, replyMarkup?: any): Promise<boolean> {
-  const settings = await getTelegramSettings();
+export async function editTelegramMessage(chatId: string, messageId: number, text: string, replyMarkup?: any, storeId?: string): Promise<boolean> {
+  const settings = await getTelegramSettings(storeId);
   if (!settings.botToken) {
     return false;
   }
@@ -78,11 +96,6 @@ export async function editTelegramMessage(chatId: string, messageId: number, tex
 }
 
 export async function sendOrderNotification(orderId: string): Promise<boolean> {
-  const settings = await getTelegramSettings();
-  if (!settings.adminChatId || !settings.notificationsEnabled) {
-    return false;
-  }
-
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -90,6 +103,11 @@ export async function sendOrderNotification(orderId: string): Promise<boolean> {
     });
 
     if (!order) return false;
+
+    const settings = await getTelegramSettings(order.storeId);
+    if (!settings.adminChatId || !settings.notificationsEnabled) {
+      return false;
+    }
 
     const itemsText = order.items.map((item, idx) => {
       return `${idx + 1}. ${item.productName} x ${item.quantity} — ${item.total.toLocaleString('ru-RU')} сум`;
@@ -149,7 +167,7 @@ export async function sendOrderNotification(orderId: string): Promise<boolean> {
       ]
     };
 
-    return await sendTelegramMessage(settings.adminChatId, text, replyMarkup);
+    return await sendTelegramMessage(settings.adminChatId, text, replyMarkup, order.storeId);
   } catch (error) {
     console.error('Error sending order notification:', error);
     return false;
