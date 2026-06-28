@@ -83,10 +83,10 @@ function HomePageContent() {
           >
             <div className="promo-content" style={{ maxWidth: '32rem', position: 'relative', zIndex: 1 }}>
               <h2 className="promo-title" style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--foreground)' }}>
-                {t('freshFoodDelivery')}
+                {store?.bannerTitle || t('freshFoodDelivery')}
               </h2>
               <p className="promo-desc" style={{ color: 'var(--muted)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                {store?.description || t('bannerDesc')}
+                {store?.bannerSubtitle || store?.description || t('bannerDesc')}
               </p>
               <button 
                 className="promo-btn" 
@@ -274,6 +274,52 @@ function HomePageContent() {
             </div>
           )}
         </section>
+
+        {/* Branches / Filiallar */}
+        {store?.branches && store.branches.length > 0 && (
+          <section style={{ marginTop: '3rem', marginBottom: '2rem' }}>
+            <h3 className="section-title">📍 Filiallarimiz</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+              {store.branches.map((branch: any) => (
+                <div key={branch.id} style={{
+                  backgroundColor: 'var(--card-bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  transition: 'box-shadow 0.2s',
+                  boxShadow: 'var(--shadow-sm)',
+                }}>
+                  <h4 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--foreground)' }}>
+                    🏢 {branch.name}
+                  </h4>
+                  {branch.address && (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>
+                      📍 {branch.address}
+                    </p>
+                  )}
+                  {branch.phone && (
+                    <a href={`tel:${branch.phone}`} style={{ fontSize: '0.85rem', color: store?.primaryColor || 'var(--primary-color)', fontWeight: 600, textDecoration: 'none' }}>
+                      📞 {branch.phone}
+                    </a>
+                  )}
+                  {branch.latitude && branch.longitude && (
+                    <a
+                      href={`https://yandex.com/maps/?ll=${branch.longitude},${branch.latitude}&z=16&pt=${branch.longitude},${branch.latitude},pm2rdm`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '0.8rem', color: store?.primaryColor || 'var(--primary-color)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      🗺️ Xaritada ko'rish
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Product Detail Modal */}

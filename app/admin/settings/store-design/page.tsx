@@ -24,6 +24,8 @@ export default function StoreDesignPage() {
   const [backgroundColor, setBackgroundColor] = useState('#f8fafc');
   const [textColor, setTextColor] = useState('#0f172a');
   const [domain, setDomain] = useState('');
+  const [bannerTitle, setBannerTitle] = useState('');
+  const [bannerSubtitle, setBannerSubtitle] = useState('');
 
   // Dynamic Phones and Socials states
   const [phonesList, setPhonesList] = useState<string[]>(['']);
@@ -56,6 +58,8 @@ export default function StoreDesignPage() {
             
             const primaryDomain = data.store.storeDomains?.find((d: any) => d.isPrimary)?.domain || '';
             setDomain(primaryDomain);
+            setBannerTitle(data.store.bannerTitle || '');
+            setBannerSubtitle(data.store.bannerSubtitle || '');
 
             // Parse phones
             let parsedPhones: string[] = [];
@@ -209,6 +213,8 @@ export default function StoreDesignPage() {
           phones: JSON.stringify(cleanPhones),
           socialsJson: JSON.stringify(cleanSocials),
           domain,
+          bannerTitle: bannerTitle || null,
+          bannerSubtitle: bannerSubtitle || null,
         }),
       });
 
@@ -373,6 +379,24 @@ export default function StoreDesignPage() {
                       <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} style={{ display: 'none' }} />
                     </label>
                   </div>
+                </div>
+
+                {/* Banner Text Fields */}
+                <h4 style={{ fontWeight: 800, borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginTop: '1rem', margin: 0 }}>
+                  📝 Banner matni (bosh sahifa)
+                </h4>
+
+                <div className="form-group">
+                  <label className="form-label">Banner sarlavhasi</label>
+                  <input type="text" className="form-input" value={bannerTitle} onChange={(e) => setBannerTitle(e.target.value)} placeholder="Masalan: Yangi va sifatli mahsulotlar!" />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                    Bo'sh qoldirsangiz standart matn ko'rinadi.
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Banner tavsifi</label>
+                  <textarea className="form-input" value={bannerSubtitle} onChange={(e) => setBannerSubtitle(e.target.value)} placeholder="Masalan: Eng yaxshi narxlarda uyingizgacha yetkazib beramiz" rows={2} style={{ resize: 'vertical' }} />
                 </div>
 
                 {/* DYNAMIC PHONES */}
@@ -611,9 +635,9 @@ export default function StoreDesignPage() {
                     textShadow: bannerUrl ? '1px 1px 4px rgba(0,0,0,0.6)' : 'none'
                   }}
                 >
-                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1rem' }}>Добро пожаловать!</h4>
+                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1rem' }}>{bannerTitle || 'Добро пожаловать!'}</h4>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', opacity: 0.8 }} className="line-clamp-2">
-                    {description || 'Ваш лучший магазин свежих продуктов.'}
+                    {bannerSubtitle || description || 'Ваш лучший магазин свежих продуктов.'}
                   </p>
                 </div>
 
